@@ -1,0 +1,16 @@
+{
+  "name": "bomjara",
+  "version": "1.0.0",
+  "description": "",
+  "main": "deepseek_javascript_20261024_c70e09.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "http-server": "^14.1.1"
+  }
+}

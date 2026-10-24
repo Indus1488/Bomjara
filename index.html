@@ -1,0 +1,999 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Бомжара: Симулятор Выживания</title>
+    <style>
+        * { box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; padding: 0;}
+        body { background-color: #2c3e50; display: flex; justify-content: center; align-items: center; height: 100vh; color: #333; overflow: hidden; }
+        
+        #game-container {
+            width: 100%; max-width: 800px; height: 100vh; height: 100dvh;
+            background: #f4f4f4; display: flex; flex-direction: column; position: relative;
+            box-shadow: 0 0 20px rgba(0,0,0,0.5); overflow: hidden;
+        }
+
+        /* --- МЕНЮ --- */
+        #start-menu, #difficulty-menu {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: #2c3e50; color: white; display: flex; flex-direction: column;
+            justify-content: center; align-items: center; z-index: 1000; padding: 20px; text-align: center;
+        }
+        #difficulty-menu { display: none; }
+        #start-menu h1 { font-size: 32px; margin-bottom: 40px; text-shadow: 2px 2px 4px rgba(0,0,0,0.5); }
+        #start-menu button, .btn-diff {
+            width: 100%; max-width: 400px; padding: 15px; margin: 10px 0; border: none; border-radius: 8px;
+            font-size: 18px; font-weight: bold; cursor: pointer; transition: 0.2s;
+        }
+        .btn-start { background: #27ae60; color: white; }
+        .btn-continue { background: #3498db; color: white; }
+        .btn-continue:disabled { background: #7f8c8d; cursor: not-allowed; opacity: 0.7; }
+        .btn-reset { background: #e74c3c; color: white; margin-top: 30px; font-size: 14px; padding: 10px; }
+        .btn-exit { background: #e67e22; color: white; width: 100%; padding: 10px; margin-bottom: 10px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer;}
+        .diff-easy { background: #27ae60; }
+        .diff-normal { background: #f39c12; }
+        .diff-hard { background: #c0392b; }
+
+        /* --- ШАПКА --- */
+        header { background: #fff; padding: 8px; border-bottom: 2px solid #ddd; z-index: 10; flex-shrink: 0; }
+        .stats { display: flex; flex-direction: column; gap: 4px; margin-bottom: 6px; }
+        .bar-container { display: flex; align-items: center; font-size: 13px; font-weight: bold; }
+        .bar-label { width: 25px; text-align: center; }
+        .bar-bg { flex-grow: 1; height: 12px; background: #e0e0e0; border-radius: 10px; margin: 0 8px; overflow: hidden; }
+        .bar-fill { height: 100%; transition: width 0.3s; }
+        .hp-fill { background: #e74c3c; }
+        .food-fill { background: #f39c12; }
+        .happy-fill { background: #3498db; }
+        .bar-val { width: 30px; text-align: right; }
+
+        .money-info { display: flex; justify-content: space-between; font-weight: bold; font-size: 14px; background: #ecf0f1; padding: 5px 10px; border-radius: 5px; }
+        .age-info { text-align: center; font-size: 12px; margin-top: 4px; color: #7f8c8d; font-weight: bold; }
+
+        /* --- КОНТЕНТ --- */
+        main { flex-grow: 1; overflow-y: auto; padding: 8px; padding-bottom: 70px; display: flex; flex-direction: column; -webkit-overflow-scrolling: touch; }
+        .tab-content { display: none; flex-direction: column; gap: 6px; }
+        .tab-content.active { display: flex; }
+        
+        .section-title { font-size: 12px; font-weight: bold; color: #7f8c8d; margin: 8px 0 4px 0; text-transform: uppercase; border-bottom: 1px solid #ccc; padding-bottom: 2px;}
+
+        /* --- КНОПКИ --- */
+        button.action-btn {
+            padding: 8px 10px; border: none; border-radius: 6px; background: #fff; color: #333;
+            font-size: 13px; font-weight: 600; cursor: pointer; box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            transition: transform 0.1s; text-align: left; display: flex; justify-content: space-between; align-items: center;
+            flex-shrink: 0; position: relative;
+        }
+        button.action-btn:active { transform: scale(0.98); background: #f0f0f0; }
+        button.action-btn:disabled { opacity: 0.5; cursor: not-allowed; background: #ddd; }
+        .cost { font-size: 11px; color: #27ae60; text-align: right; }
+        .cost.dollar { color: #2980b9; }
+        .req { font-size: 10px; color: #e74c3c; display: block; margin-top: 1px; font-weight: normal;}
+        .req-hidden { display: none !important; }
+        
+        .check-mark { color: #27ae60; font-weight: bold; font-size: 14px; position: absolute; right: 5px; top: 5px; display: none; }
+        .owned .check-mark { display: block; }
+        .owned { border: 1px solid #27ae60; }
+
+        /* --- БЛОКИ --- */
+        .bottle-info { background: #e8f8f5; padding: 6px; border-radius: 6px; font-size: 13px; text-align: center; font-weight: bold; border: 1px dashed #1abc9c; margin: 2px 0 6px 0; flex-shrink: 0;}
+        .slider-container { background: #fff; padding: 8px; border-radius: 8px; border: 1px solid #ddd; margin-bottom: 6px; flex-shrink: 0;}
+        .slider-container input[type="range"] { width: 100%; margin: 5px 0; }
+        .slider-vals { display: flex; justify-content: space-between; font-size: 12px; font-weight: bold; }
+        .casino-block { background: #fff; padding: 8px; border-radius: 8px; margin-top: 6px; border: 1px solid #ddd; flex-shrink: 0;}
+        input[type="number"] { width: 100%; padding: 6px; margin: 4px 0; border: 1px solid #ccc; border-radius: 4px; text-align: center; font-size: 14px; }
+        
+        .inventory-box { background: #fff; padding: 8px; border-radius: 6px; font-size: 12px; border: 1px solid #ddd; margin-bottom: 6px; flex-shrink: 0;}
+        .inventory-box span { font-weight: bold; color: #2980b9; }
+
+        /* --- ЛОГИ --- */
+        .log-box { background: #fff; border-radius: 6px; padding: 6px; font-size: 12px; overflow-y: auto; border: 1px solid #ddd; margin-top: 6px; min-height: 80px; max-height: 150px; display: flex; flex-direction: column-reverse; flex-shrink: 0;}
+        .log-entry { padding: 3px 0; border-bottom: 1px dashed #eee; color: #555; }
+        .log-entry.sys { color: #e67e22; font-weight: bold;}
+        .log-entry.success { color: #27ae60; font-weight: bold;}
+        .log-entry.danger { color: #e74c3c; font-weight: bold;}
+
+        /* --- НИЖНЕЕ МЕНЮ --- */
+        nav { position: absolute; bottom: 0; width: 100%; background: #fff; display: flex; justify-content: space-around; border-top: 2px solid #ddd; padding: 5px 0; z-index: 100; flex-shrink: 0;}
+        .tab-btn { background: none; border: none; font-size: 18px; cursor: pointer; padding: 4px; opacity: 0.4; transition: 0.2s; }
+        .tab-btn.active { opacity: 1; transform: scale(1.1); }
+
+        #game-ui { display: none; height: 100%; flex-direction: column; }
+    </style>
+</head>
+<body>
+
+<div id="game-container">
+    <!-- СТАРТОВОЕ МЕНЮ -->
+    <div id="start-menu">
+        <h1>БОМЖАРА</h1>
+        <button id="btn-new-game" class="btn-start" onclick="showDifficulty()">Новая игра</button>
+        <button id="btn-continue" class="btn-continue" onclick="loadGame()" disabled>Продолжить</button>
+        <button class="btn-reset" onclick="resetProgress()">Сбросить прогресс</button>
+    </div>
+
+    <!-- МЕНЮ СЛОЖНОСТИ -->
+    <div id="difficulty-menu">
+        <h2>Выбери свою судьбу</h2>
+        <button class="btn-diff diff-easy" onclick="startGame('easy')">😎 Счастливчик (18 лет)</button>
+        <button class="btn-diff diff-normal" onclick="startGame('normal')">😐 Обычный (25 лет)</button>
+        <button class="btn-diff diff-hard" onclick="startGame('hard')">💀 Бедолага (45 лет)</button>
+    </div>
+
+    <!-- ИНТЕРФЕЙС ИГРЫ -->
+    <div id="game-ui">
+        <header>
+            <div class="stats">
+                <div class="bar-container"><span class="bar-label">❤️</span><div class="bar-bg"><div id="hp-bar" class="bar-fill hp-fill"></div></div><span id="hp-val" class="bar-val">100</span></div>
+                <div class="bar-container"><span class="bar-label">🍕</span><div class="bar-bg"><div id="food-bar" class="bar-fill food-fill"></div></div><span id="food-val" class="bar-val">100</span></div>
+                <div class="bar-container"><span class="bar-label">😊</span><div class="bar-bg"><div id="happy-bar" class="bar-fill happy-fill"></div></div><span id="happy-val" class="bar-val">100</span></div>
+            </div>
+            <div class="money-info">
+                <div>₽ <span id="money-rub">0</span></div>
+                <div>$ <span id="money-usd">0</span></div>
+            </div>
+            <div class="age-info">Возраст: <span id="age">18</span> лет | Дней: <span id="days">0</span></div>
+        </header>
+
+        <main>
+            <!-- ГЛАВНАЯ -->
+            <div id="tab-main" class="tab-content active">
+                <button class="btn-exit" onclick="exitToMenu()">🚪 Выйти в главное меню (Сохранить)</button>
+                <h3>Главная</h3>
+                
+                <div class="inventory-box">
+                    <div style="margin-bottom:3px;">Ваш статус:</div>
+                    <div>🎓 Образование: <span id="inv-edu">Нет</span></div>
+                    <div>🏠 Жильё: <span id="inv-home">Улица</span></div>
+                    <div>🚗 Транспорт: <span id="inv-trans">Босиком</span></div>
+                </div>
+
+                <div class="slider-container">
+                    <div style="text-align:center; font-size:13px; font-weight:bold; margin-bottom:3px;">Обмен валют (60₽ = 1$)</div>
+                    <input type="range" id="currency-slider" min="0" max="0" value="0" oninput="updateSlider()">
+                    <div class="slider-vals">
+                        <span id="slider-rub">0 ₽</span>
+                        <span id="slider-usd">0 $</span>
+                    </div>
+                    <button class="action-btn" style="justify-content:center; margin-top:5px;" onclick="doExchange()">Обменять</button>
+                </div>
+                
+                <div class="casino-block">
+                    <div style="text-align:center; margin-bottom:3px; font-size:13px;">🎰 Казино (Игра на $)</div>
+                    <input type="number" id="bet-amount" value="1" min="1">
+                    <button class="action-btn" style="justify-content:center; background:#e74c3c; color:white;" onclick="playCasino()">Играть на удачу (x2)</button>
+                </div>
+                <div class="log-box" id="main-log"><div class="log-entry sys">Добро пожаловать!</div></div>
+            </div>
+
+            <!-- РАБОТА -->
+            <div id="tab-work" class="tab-content">
+                <h3>Заработок и Работа</h3>
+                <button class="action-btn" onclick="actionSearchTrash()"><span>Копаться на помойке</span><span class="cost">Рандом</span></button>
+                <div class="bottle-info">🍾 Бутылок: <span id="work-bottles">0</span></div>
+                <button class="action-btn" onclick="actionBeg()"><span>Попрошайничать</span><span class="cost">+ 5-15 ₽</span></button>
+                <button class="action-btn" onclick="actionSellBottles()" style="background:#d1f2eb;"><span>Сдать бутылки</span><span class="cost">+ 10 ₽ / шт.</span></button>
+                
+                <div class="section-title">Работы</div>
+                <button class="action-btn" onclick="work('loader')">
+                    <span>Грузчик<span class="req" id="req-loader"></span></span>
+                    <span class="cost">+150 ₽ / -15 ❤️ / -5 😊</span>
+                </button>
+                <button class="action-btn" onclick="work('waiter')">
+                    <span>Официант<span class="req" id="req-waiter">Требуется: Школа, Ролики</span></span>
+                    <span class="cost">+250 ₽ / -10 ❤️ / -10 😊</span>
+                </button>
+                <button class="action-btn" onclick="work('builder')">
+                    <span>Строитель<span class="req" id="req-builder">Требуется: Школа</span></span>
+                    <span class="cost">+400 ₽ / -25 ❤️ / -5 😊</span>
+                </button>
+                <button class="action-btn" onclick="work('courier')">
+                    <span>Курьер<span class="req" id="req-courier">Требуется: Самокат, Телефон</span></span>
+                    <span class="cost">+600 ₽ / -10 ❤️ / -10 😊</span>
+                </button>
+                <button class="action-btn" onclick="work('taxi')">
+                    <span>Таксист<span class="req" id="req-taxi">Требуется: Права, Машина, Телефон</span></span>
+                    <span class="cost">+1200 ₽ / -10 ❤️ / -15 😊</span>
+                </button>
+                <button class="action-btn" onclick="work('mchs')">
+                    <span>МЧСник<span class="req" id="req-mchs">Требуется: Военный билет, Бакалавр</span></span>
+                    <span class="cost">+1500 ₽ / -20 ❤️ / -15 😊</span>
+                </button>
+                <button class="action-btn" onclick="work('programmer')">
+                    <span>Программист<span class="req" id="req-programmer">Требуется: Бакалавр, Компьютер</span></span>
+                    <span class="cost">+3000 ₽ / -5 ❤️ / -20 😊</span>
+                </button>
+                <button class="action-btn" onclick="work('pilot')">
+                    <span>Пилот<span class="req" id="req-pilot">Требуется: Лётная лицензия, Самолёт</span></span>
+                    <span class="cost">+8000 ₽ / -5 ❤️ / -10 😊</span>
+                </button>
+                <button class="action-btn" onclick="work('ceo')">
+                    <span>Директор IT<span class="req" id="req-ceo">Требуется: Научная степень, Офис, IT-команда</span></span>
+                    <span class="cost">+25000 ₽ / -10 ❤️ / -20 😊</span>
+                </button>
+                <div class="log-box" id="work-log"></div>
+            </div>
+
+            <!-- БЫТ -->
+            <div id="tab-life" class="tab-content">
+                <h3>Быт</h3>
+                
+                <div class="section-title">Еда</div>
+                <button class="action-btn" onclick="buyItem('trash_food')"><span>🗑️ Еда с помойки</span><span class="cost">Бесплатно / -10 ❤️</span></button>
+                <button class="action-btn" onclick="buyItem('shawarma')"><span>🌯 Шаурма</span><span class="cost">60 ₽ / +40 🍕</span></button>
+                <button class="action-btn" onclick="buyItem('pizza')"><span>🍕 Пицца</span><span class="cost">150 ₽ / +70 🍕</span></button>
+                <button class="action-btn" onclick="buyItem('steak')"><span>🥩 Стейк</span><span class="cost">300 ₽ / +100 🍕</span></button>
+                <button class="action-btn" onclick="buyItem('restaurant')"><span>🍽️ Ресторан</span><span class="cost">1000 ₽ / +100 🍕, +20 😊</span></button>
+                <button class="action-btn" onclick="buySub('cook')" id="btn-sub-cook">
+                    <span class="check-mark">✅</span><span>👨‍🍳 Личный повар (подписка)</span><span class="cost">1500 ₽ / день / +100 🍕</span>
+                </button>
+
+                <div class="section-title">Досуг</div>
+                <button class="action-btn" onclick="buyItem('walk')"><span>🚶 Погулять</span><span class="cost">-10 🍕 / +10 😊</span></button>
+                <button class="action-btn" onclick="buyItem('beer')"><span>🍺 Выпить пива</span><span class="cost">40 ₽ / +25 😊, -5 ❤️</span></button>
+                <button class="action-btn" onclick="buyItem('wine')"><span>🍷 Выпить вина</span><span class="cost">100 ₽ / +40 😊, -2 ❤️</span></button>
+                <button class="action-btn" onclick="buyItem('attractions')"><span>🎡 Аттракционы</span><span class="cost">200 ₽ / +50 😊</span></button>
+                <button class="action-btn" onclick="buyItem('boat_rest')" id="btn-boat-rest"><span>🛥️ Отдых на катере</span><span class="cost">+100 😊</span></button>
+                <button class="action-btn" onclick="buySub('friend')" id="btn-sub-friend">
+                    <span class="check-mark">✅</span><span>🤝 Друг на час (подписка)</span><span class="cost">800 ₽ / день / +50 😊</span>
+                </button>
+
+                <div class="section-title">Здоровье</div>
+                <button class="action-btn" onclick="heal('trash_pills')"><span>💊 Таблетки с помойки</span><span class="cost">Рандом / -10 😊</span></button>
+                <button class="action-btn" onclick="heal('grandma_pills')"><span>👵 Бабушкины лекарства</span><span class="cost">80 ₽ / +25 ❤️</span></button>
+                <button class="action-btn" onclick="heal('antibiotics')"><span>💉 Антибиотики</span><span class="cost">150 ₽ / +60 ❤️</span></button>
+                <button class="action-btn" onclick="buySub('doctor')" id="btn-sub-doctor">
+                    <span class="check-mark">✅</span><span>🏥 Платный врач (подписка)</span><span class="cost">3000 ₽ / день / +100 ❤️</span>
+                </button>
+                <div class="log-box" id="life-log"></div>
+            </div>
+
+            <!-- ЖИЛЬЁ -->
+            <div id="tab-home" class="tab-content">
+                <h3>Недвижимость</h3>
+                <button class="action-btn" onclick="buyHome('box')" id="btn-home-box"><span class="check-mark">✅</span><span>📦 Картонная коробка</span><span class="cost">100 ₽</span></button>
+                <button class="action-btn" onclick="rentHome('shed')"><span>🏚️ Подсобка (аренда)</span><span class="cost">100 ₽ / день</span></button>
+                <button class="action-btn" onclick="rentHome('dorm')"><span>🏢 Общага (аренда)</span><span class="cost">150 ₽ / день</span></button>
+                <button class="action-btn" onclick="rentHome('room')"><span>🚪 Комната (аренда)</span><span class="cost">300 ₽ / день</span></button>
+                <button class="action-btn" onclick="rentHome('flat_rent')"><span>🏠 Квартира (аренда)</span><span class="cost">1000 ₽ / день</span></button>
+                <hr style="border:0; border-top:1px solid #ccc; margin:5px 0;">
+                <button class="action-btn" onclick="buyHome('studio')"><span>🏢 Студия (своя)</span><span class="cost">50 000 ₽</span></button>
+                <button class="action-btn" onclick="buyHome('flat_own')"><span>🏡 Своя квартира</span><span class="cost">150 000 ₽</span></button>
+                <button class="action-btn" onclick="buyHome('townhouse')"><span>🏘️ Таунхаус</span><span class="cost">500 000 ₽</span></button>
+                <button class="action-btn" onclick="buyHome('penthouse')"><span>🏙️ Пентхаус</span><span class="cost">1500000 ₽</span></button>
+                <button class="action-btn" onclick="buyHome('office')"><span>🏢 Офис (для IT)</span><span class="cost">2000000 ₽</span></button>
+                <button class="action-btn" onclick="buyHome('mansion')"><span>🏰 Особняк</span><span class="cost">5000000 ₽</span></button>
+                <div class="log-box" id="home-log"></div>
+            </div>
+
+            <!-- ОБРАЗОВАНИЕ -->
+            <div id="tab-edu" class="tab-content">
+                <h3>Образование и Развитие</h3>
+                <button class="action-btn" onclick="study('school')" id="btn-edu-school">
+                    <span class="check-mark">✅</span><span>🎓 Окончить школу</span><span class="cost">200 ₽</span>
+                </button>
+                <button class="action-btn" onclick="study('bachelor')" id="btn-edu-bachelor">
+                    <span class="check-mark">✅</span><span>🎓 Бакалавр<span class="req" id="req-bachelor">Нужна Школа</span></span><span class="cost">5000 ₽</span>
+                </button>
+                <button class="action-btn" onclick="study('master')" id="btn-edu-master">
+                    <span class="check-mark">✅</span><span>🎓 Магистратура<span class="req" id="req-master">Нужен Бакалавр</span></span><span class="cost">20000 ₽</span>
+                </button>
+                <button class="action-btn" onclick="study('science')" id="btn-edu-science">
+                    <span class="check-mark">✅</span><span>🔬 Научная степень<span class="req" id="req-science">Нужна Магистратура</span></span><span class="cost">50000 ₽</span>
+                </button>
+                <hr style="border:0; border-top:1px solid #ccc; margin:5px 0;">
+                <button class="action-btn" onclick="study('license')" id="btn-edu-license">
+                    <span class="check-mark">✅</span><span>🚗 Сдать на права</span><span class="cost">300 ₽</span>
+                </button>
+                <button class="action-btn" onclick="study('military')" id="btn-edu-military">
+                    <span class="check-mark">✅</span><span>🪖 Военный билет</span><span class="cost">100 ₽</span>
+                </button>
+                <button class="action-btn" onclick="study('pilot_license')" id="btn-edu-pilot">
+                    <span class="check-mark">✅</span><span>✈️ Лётная лицензия</span><span class="cost dollar">100 $</span>
+                </button>
+                <hr style="border:0; border-top:1px solid #ccc; margin:5px 0;">
+                <button class="action-btn" onclick="hireTeam()" id="btn-hire-team">
+                    <span class="check-mark">✅</span><span>👥 Нанять IT-команду</span><span class="cost">-5000 ₽ / день</span>
+                </button>
+                <button class="action-btn" onclick="buyImmortality()" id="btn-immortal" style="background:#fcf3cf; border: 1px solid #f1c40f;">
+                    <span class="check-mark">✅</span><span>💊 Таблетка Бессмертия</span><span class="cost dollar">10 000 $</span>
+                </button>
+            </div>
+
+            <!-- ТРАНСПОРТ И ТЕХНИКА -->
+            <div id="tab-trans" class="tab-content">
+                <h3>Транспорт и Техника</h3>
+                <button class="action-btn" onclick="buyTransport('sneakers')" id="btn-trans-sneakers">
+                    <span class="check-mark">✅</span><span>👟 Кроссовки</span><span class="cost">500 ₽</span>
+                </button>
+                <button class="action-btn" onclick="buyTransport('rollers')" id="btn-trans-rollers">
+                    <span class="check-mark">✅</span><span>🛼 Ролики</span><span class="cost">1500 ₽</span>
+                </button>
+                <button class="action-btn" onclick="buyTransport('scooter_rent')" id="btn-trans-scooter">
+                    <span class="check-mark">✅</span><span>🛴 Арендовать самокат</span><span class="cost">50 ₽ / день</span>
+                </button>
+                <button class="action-btn" onclick="buyTransport('scooter')" id="btn-trans-scooter-buy">
+                    <span class="check-mark">✅</span><span>🛴 Купить самокат</span><span class="cost">5000 ₽</span>
+                </button>
+                <button class="action-btn" onclick="buyTransport('car')" id="btn-trans-car">
+                    <span class="check-mark">✅</span><span>🚗 Купить машину</span><span class="cost">30000 ₽</span>
+                </button>
+                <button class="action-btn" onclick="buyTransport('boat')" id="btn-trans-boat">
+                    <span class="check-mark">✅</span><span>🛥️ Купить катер</span><span class="cost">100000 ₽</span>
+                </button>
+                <button class="action-btn" onclick="buyTransport('helicopter')" id="btn-trans-heli">
+                    <span class="check-mark">✅</span><span>🚁 Купить вертолёт</span><span class="cost">150000 ₽</span>
+                </button>
+                <button class="action-btn" onclick="buyTransport('plane')" id="btn-trans-plane">
+                    <span class="check-mark">✅</span><span>✈️ Купить самолёт</span><span class="cost">500000 ₽</span>
+                </button>
+                <hr style="border:0; border-top:1px solid #ccc; margin:5px 0;">
+                <div class="section-title">Электроника</div>
+                <button class="action-btn" onclick="buyTech('phone')" id="btn-tech-phone">
+                    <span class="check-mark">✅</span><span>📱 Телефон</span><span class="cost">3000 ₽</span>
+                </button>
+                <button class="action-btn" onclick="buyTech('computer')" id="btn-tech-pc">
+                    <span class="check-mark">✅</span><span>💻 Компьютер</span><span class="cost">25000 ₽</span>
+                </button>
+                <div class="log-box" id="trans-log"></div>
+            </div>
+
+            <!-- ДОСТИЖЕНИЯ -->
+            <div id="tab-ach" class="tab-content">
+                <h3>Достижения</h3>
+                <div id="achievements-list" style="display:flex; flex-direction:column; gap:6px;"></div>
+                <div class="log-box" id="ach-log"></div>
+            </div>
+        </main>
+
+        <nav>
+            <button class="tab-btn active" onclick="switchTab('main', this)">🏠</button>
+            <button class="tab-btn" onclick="switchTab('work', this)">💼</button>
+            <button class="tab-btn" onclick="switchTab('life', this)">🍔</button>
+            <button class="tab-btn" onclick="switchTab('home', this)">🏠</button>
+            <button class="tab-btn" onclick="switchTab('edu', this)">🎓</button>
+            <button class="tab-btn" onclick="switchTab('trans', this)">🚗</button>
+            <button class="tab-btn" onclick="switchTab('ach', this)">🏆</button>
+        </nav>
+    </div>
+</div>
+
+<script>
+    let state = {};
+    const SAVE_KEY = 'bomzhara_save_final_v2';
+
+    window.onload = function() { checkSave(); };
+
+    function checkSave() {
+        const saved = localStorage.getItem(SAVE_KEY);
+        const btnContinue = document.getElementById('btn-continue');
+        if (saved) {
+            const parsed = JSON.parse(saved);
+            btnContinue.disabled = false;
+            btnContinue.innerText = `Продолжить (Возраст: ${parsed.age}, Дней: ${parsed.days})`;
+        } else {
+            btnContinue.disabled = true;
+            btnContinue.innerText = 'Продолжить (Нет сохранения)';
+        }
+    }
+
+    function showDifficulty() {
+        document.getElementById('start-menu').style.display = 'none';
+        document.getElementById('difficulty-menu').style.display = 'flex';
+    }
+
+    function startGame(diff) {
+        let baseEdu = { school: false, bachelor: false, master: false, science: false, license: false, military: false, pilot_license: false };
+        let baseTrans = { sneakers: false, rollers: false, scooter: false, scooter_bought: false, car: false, boat: false, helicopter: false, plane: false };
+        let baseTech = { phone: false, computer: false };
+        let baseHome = { type: 'street', rent: 0 };
+        let baseSubs = { doctor: false, cook: false, friend: false };
+        let baseAch = { gruzal: false, courier: false, isaac: false, immortal: false, aristocrat: false, spender: false, secret_millionaire: false, workaholic: false, lucky: false, longliver: false, shopaholic: false, partier: false, nomad: false };
+        let counters = { loader_count: 0, courier_count: 0, total_spent: 0, total_earned_work: 0, total_work_shifts: 0, home_changes: 0, casino_wins: 0, attractions_count: 0 };
+
+        if (diff === 'easy') {
+            state = { hp: 100, food: 100, happy: 100, rub: 2000, usd: 0, bottles: 0, age: 18, days: 0, isDead: false, immortal: false, hasTeam: false, edu: { ...baseEdu, school: true }, trans: baseTrans, tech: baseTech, home: baseHome, subs: baseSubs, ach: baseAch, counters: counters };
+        } else if (diff === 'normal') {
+            state = { hp: 100, food: 100, happy: 100, rub: 200, usd: 0, bottles: 0, age: 25, days: 0, isDead: false, immortal: false, hasTeam: false, edu: baseEdu, trans: baseTrans, tech: baseTech, home: baseHome, subs: baseSubs, ach: baseAch, counters: counters };
+        } else if (diff === 'hard') {
+            state = { hp: 50, food: 50, happy: 50, rub: 50, usd: 0, bottles: 0, age: 45, days: 0, isDead: false, immortal: false, hasTeam: false, edu: baseEdu, trans: baseTrans, tech: baseTech, home: baseHome, subs: baseSubs, ach: baseAch, counters: counters };
+        }
+        
+        document.getElementById('difficulty-menu').style.display = 'none';
+        document.getElementById('game-ui').style.display = 'flex';
+        document.getElementById('main-log').innerHTML = ''; 
+        addLog("Новая игра начата.", 'main');
+        saveGame();
+        updateUI();
+    }
+
+    function loadGame() {
+        const saved = localStorage.getItem(SAVE_KEY);
+        if (saved) {
+            state = JSON.parse(saved);
+            document.getElementById('start-menu').style.display = 'none';
+            document.getElementById('game-ui').style.display = 'flex';
+            
+            document.getElementById('main-log').innerHTML = '';
+            document.getElementById('work-log').innerHTML = '';
+            document.getElementById('life-log').innerHTML = '';
+            document.getElementById('home-log').innerHTML = '';
+            document.getElementById('trans-log').innerHTML = '';
+            document.getElementById('ach-log').innerHTML = '';
+            
+            updateUI();
+            addLog("Игра загружена.", 'main');
+        }
+    }
+
+    function exitToMenu() {
+        saveGame();
+        document.getElementById('main-log').innerHTML = '';
+        document.getElementById('work-log').innerHTML = '';
+        document.getElementById('life-log').innerHTML = '';
+        document.getElementById('home-log').innerHTML = '';
+        document.getElementById('trans-log').innerHTML = '';
+        document.getElementById('ach-log').innerHTML = '';
+
+        document.getElementById('game-ui').style.display = 'none';
+        document.getElementById('start-menu').style.display = 'flex';
+        checkSave();
+    }
+
+    function resetProgress() {
+        if (confirm("Удалить сохранение и начать заново?")) {
+            localStorage.removeItem(SAVE_KEY);
+            location.reload();
+        }
+    }
+
+    function saveGame() {
+        if (state.isDead) return;
+        localStorage.setItem(SAVE_KEY, JSON.stringify(state));
+        checkSave();
+    }
+
+    function updateUI() {
+        if (state.isDead) return;
+
+        document.getElementById('hp-val').innerText = Math.floor(state.hp);
+        document.getElementById('hp-bar').style.width = Math.max(0, state.hp) + '%';
+        document.getElementById('food-val').innerText = Math.floor(state.food);
+        document.getElementById('food-bar').style.width = Math.max(0, state.food) + '%';
+        document.getElementById('happy-val').innerText = Math.floor(state.happy);
+        document.getElementById('happy-bar').style.width = Math.max(0, state.happy) + '%';
+
+        document.getElementById('money-rub').innerText = Math.floor(state.rub);
+        document.getElementById('money-usd').innerText = Math.floor(state.usd);
+        document.getElementById('work-bottles').innerText = state.bottles;
+        document.getElementById('age').innerText = state.age;
+        document.getElementById('days').innerText = state.days;
+
+        // Статус на главной
+        let eduArr = [];
+        if (state.edu.school) eduArr.push("Школа");
+        if (state.edu.bachelor) eduArr.push("Бакалавр");
+        if (state.edu.master) eduArr.push("Магистр");
+        if (state.edu.science) eduArr.push("Наука");
+        if (state.edu.license) eduArr.push("Права");
+        if (state.edu.military) eduArr.push("Военник");
+        if (state.edu.pilot_license) eduArr.push("Пилот");
+        document.getElementById('inv-edu').innerText = eduArr.length ? eduArr.join(', ') : 'Нет';
+
+        let homeNames = { street: "Улица", box: "Коробка", shed: "Подсобка", dorm: "Общага", room: "Комната", flat_rent: "Аренда кв.", studio: "Студия", flat_own: "Своя кв.", townhouse: "Таунхаус", penthouse: "Пентхаус", office: "Офис", mansion: "Особняк" };
+        document.getElementById('inv-home').innerText = homeNames[state.home.type];
+
+        let transArr = [];
+        if (state.trans.sneakers) transArr.push("Кроссовки");
+        if (state.trans.rollers) transArr.push("Ролики");
+        if (state.trans.scooter) transArr.push("Самокат");
+        if (state.trans.car) transArr.push("Машина");
+        if (state.trans.boat) transArr.push("Катер");
+        if (state.trans.helicopter) transArr.push("Вертолёт");
+        if (state.trans.plane) transArr.push("Самолёт");
+        document.getElementById('inv-trans').innerText = transArr.length ? transArr.join(', ') : 'Босиком';
+
+        // Проверки для работ
+        let reqLoader = [];
+        if (!state.trans.sneakers) reqLoader.push("Кроссовки (урон x2)");
+        document.getElementById('req-loader').innerText = reqLoader.length ? "Требуется: " + reqLoader.join(', ') : '';
+
+        let reqWaiter = [];
+        if (!state.edu.school) reqWaiter.push("Школа");
+        if (!state.trans.rollers) reqWaiter.push("Ролики");
+        document.getElementById('req-waiter').innerText = reqWaiter.length ? "Требуется: " + reqWaiter.join(', ') : '';
+        document.getElementById('req-waiter').classList.toggle('req-hidden', reqWaiter.length === 0);
+
+        let reqBuilder = [];
+        if (!state.edu.school) reqBuilder.push("Школа");
+        document.getElementById('req-builder').innerText = reqBuilder.length ? "Требуется: " + reqBuilder.join(', ') : '';
+        document.getElementById('req-builder').classList.toggle('req-hidden', reqBuilder.length === 0);
+
+        let reqCourier = [];
+        if (!state.trans.scooter) reqCourier.push("Самокат");
+        if (!state.tech.phone) reqCourier.push("Телефон");
+        document.getElementById('req-courier').innerText = reqCourier.length ? "Требуется: " + reqCourier.join(', ') : '';
+        document.getElementById('req-courier').classList.toggle('req-hidden', reqCourier.length === 0);
+
+        let reqTaxi = [];
+        if (!state.edu.license) reqTaxi.push("Права");
+        if (!state.trans.car) reqTaxi.push("Машина");
+        if (!state.tech.phone) reqTaxi.push("Телефон");
+        document.getElementById('req-taxi').innerText = reqTaxi.length ? "Требуется: " + reqTaxi.join(', ') : '';
+        document.getElementById('req-taxi').classList.toggle('req-hidden', reqTaxi.length === 0);
+
+        let reqMchs = [];
+        if (!state.edu.military) reqMchs.push("Военный билет");
+        if (!state.edu.bachelor) reqMchs.push("Бакалавр");
+        document.getElementById('req-mchs').innerText = reqMchs.length ? "Требуется: " + reqMchs.join(', ') : '';
+        document.getElementById('req-mchs').classList.toggle('req-hidden', reqMchs.length === 0);
+
+        let reqProg = [];
+        if (!state.edu.bachelor) reqProg.push("Бакалавр");
+        if (!state.tech.computer) reqProg.push("Компьютер");
+        document.getElementById('req-programmer').innerText = reqProg.length ? "Требуется: " + reqProg.join(', ') : '';
+        document.getElementById('req-programmer').classList.toggle('req-hidden', reqProg.length === 0);
+
+        let reqPilot = [];
+        if (!state.edu.pilot_license) reqPilot.push("Лётная лицензия");
+        if (!state.trans.plane) reqPilot.push("Самолёт");
+        document.getElementById('req-pilot').innerText = reqPilot.length ? "Требуется: " + reqPilot.join(', ') : '';
+        document.getElementById('req-pilot').classList.toggle('req-hidden', reqPilot.length === 0);
+
+        let reqCeo = [];
+        if (!state.edu.science) reqCeo.push("Научная степень");
+        if (!state.hasTeam) reqCeo.push("IT-команда");
+        if (state.home.type !== 'office') reqCeo.push("Офис");
+        document.getElementById('req-ceo').innerText = reqCeo.length ? "Требуется: " + reqCeo.join(', ') : '';
+        document.getElementById('req-ceo').classList.toggle('req-hidden', reqCeo.length === 0);
+
+        // Проверки образования
+        let reqBach = [];
+        if (!state.edu.school) reqBach.push("Школа");
+        document.getElementById('req-bachelor').innerText = reqBach.length ? "Нужна: " + reqBach.join(', ') : '';
+        document.getElementById('req-bachelor').classList.toggle('req-hidden', reqBach.length === 0);
+
+        let reqMaster = [];
+        if (!state.edu.bachelor) reqMaster.push("Бакалавр");
+        document.getElementById('req-master').innerText = reqMaster.length ? "Нужен: " + reqMaster.join(', ') : '';
+        document.getElementById('req-master').classList.toggle('req-hidden', reqMaster.length === 0);
+
+        let reqScience = [];
+        if (!state.edu.master) reqScience.push("Магистратура");
+        document.getElementById('req-science').innerText = reqScience.length ? "Нужна: " + reqScience.join(', ') : '';
+        document.getElementById('req-science').classList.toggle('req-hidden', reqScience.length === 0);
+
+        // Галочки
+        toggleOwned('btn-edu-school', state.edu.school);
+        toggleOwned('btn-edu-bachelor', state.edu.bachelor);
+        toggleOwned('btn-edu-master', state.edu.master);
+        toggleOwned('btn-edu-science', state.edu.science);
+        toggleOwned('btn-edu-license', state.edu.license);
+        toggleOwned('btn-edu-military', state.edu.military);
+        toggleOwned('btn-edu-pilot', state.edu.pilot_license);
+        toggleOwned('btn-hire-team', state.hasTeam);
+        toggleOwned('btn-immortal', state.immortal);
+        
+        toggleOwned('btn-trans-sneakers', state.trans.sneakers);
+        toggleOwned('btn-trans-rollers', state.trans.rollers);
+        toggleOwned('btn-trans-scooter', state.trans.scooter);
+        toggleOwned('btn-trans-scooter-buy', state.trans.scooter_bought);
+        toggleOwned('btn-trans-car', state.trans.car);
+        toggleOwned('btn-trans-boat', state.trans.boat);
+        toggleOwned('btn-trans-heli', state.trans.helicopter);
+        toggleOwned('btn-trans-plane', state.trans.plane);
+        toggleOwned('btn-tech-phone', state.tech.phone);
+        toggleOwned('btn-tech-pc', state.tech.computer);
+
+        toggleOwned('btn-sub-cook', state.subs.cook);
+        toggleOwned('btn-sub-friend', state.subs.friend);
+        toggleOwned('btn-sub-doctor', state.subs.doctor);
+        
+        toggleOwned('btn-home-box', state.home.type === 'box');
+
+        document.getElementById('btn-boat-rest').style.display = state.trans.boat ? 'flex' : 'none';
+
+        const slider = document.getElementById('currency-slider');
+        slider.max = Math.floor(state.rub / 60);
+        if (slider.value > slider.max) slider.value = slider.max;
+        updateSlider();
+
+        updateAchievementsList();
+    }
+
+    function toggleOwned(id, isOwned) {
+        const el = document.getElementById(id);
+        if (el) el.classList.toggle('owned', isOwned);
+    }
+
+    function updateSlider() {
+        const val = parseInt(document.getElementById('currency-slider').value);
+        document.getElementById('slider-rub').innerText = (val * 60) + " ₽";
+        document.getElementById('slider-usd').innerText = val + " $";
+    }
+
+    function doExchange() {
+        const val = parseInt(document.getElementById('currency-slider').value);
+        if (val > 0) {
+            state.rub -= val * 60; state.usd += val;
+            addLog(`💱 Обменяно ${val * 60}₽ на ${val}$.`, 'main');
+            updateUI(); saveGame();
+        }
+    }
+
+    function addLog(text, tabId) {
+        const mainLog = document.getElementById('main-log');
+        if (mainLog) {
+            const entry = document.createElement('div');
+            entry.className = 'log-entry';
+            entry.innerHTML = text;
+            mainLog.prepend(entry);
+        }
+        
+        if (tabId && tabId !== 'main') {
+            const localLog = document.getElementById(tabId + '-log');
+            if (localLog) {
+                const entry = document.createElement('div');
+                entry.className = 'log-entry';
+                entry.innerHTML = text;
+                localLog.prepend(entry);
+            }
+        }
+        checkAchievements();
+    }
+
+    function switchTab(tabId, btn) {
+        document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+        document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+        document.getElementById('tab-' + tabId).classList.add('active');
+        btn.classList.add('active');
+    }
+
+    function skipDay() {
+        if (state.isDead) return;
+        state.days++; state.food -= 15; state.happy -= 5;
+
+        if (state.home.rent > 0) {
+            if (state.rub >= state.home.rent) { state.rub -= state.home.rent; addLog(`🏠 Оплачена аренда жилья (-${state.home.rent}₽).`, 'main'); state.counters.total_spent += state.home.rent; }
+            else { state.home = { type: 'street', rent: 0 }; state.counters.home_changes++; addLog("❌ Вас выселили за неуплату! Вернулись на улицу.", 'main'); }
+        }
+
+        if (state.trans.scooter && !state.trans.scooter_bought) {
+            state.rub -= 50; state.counters.total_spent += 50;
+            if (state.rub < 0) { state.trans.scooter = false; state.rub = 0; addLog("❌ Аренда самоката не оплачена.", 'main'); }
+            else addLog("🛴 Списано 50₽ за самокат.", 'main');
+        }
+
+        if (state.hasTeam) {
+            if (state.rub >= 5000) { state.rub -= 5000; state.counters.total_spent += 5000; addLog("👥 Оплачена IT-команда (-5000₽).", 'main'); }
+            else { state.hasTeam = false; addLog("❌ IT-команда разбежалась (нет денег).", 'main'); }
+        }
+
+        if (state.subs.doctor) {
+            if (state.rub >= 3000) { state.rub -= 3000; state.counters.total_spent += 3000; state.hp = 100; addLog("🏥 Врач вылечил до максимума.", 'main'); }
+            else { state.subs.doctor = false; addLog("❌ Врач уволен (нет денег).", 'main'); }
+        }
+        if (state.subs.cook) {
+            if (state.rub >= 1500) { state.rub -= 1500; state.counters.total_spent += 1500; state.food = 100; addLog("👨‍🍳 Повар накормил до максимума.", 'main'); }
+            else { state.subs.cook = false; addLog("❌ Повар уволен (нет денег).", 'main'); }
+        }
+        if (state.subs.friend) {
+            if (state.rub >= 800) { state.rub -= 800; state.counters.total_spent += 800; state.happy += 50; if(state.happy>100) state.happy=100; addLog("🤝 Друг поднял настроение (+50😊).", 'main'); }
+            else { state.subs.friend = false; addLog("❌ Друг ушел (нет денег).", 'main'); }
+        }
+
+        // Случайные события дома
+        if (state.home.type === 'street' || state.home.type === 'box' || state.home.type === 'shed' || state.home.type === 'dorm' || state.home.type === 'room' || state.home.type === 'flat_rent') {
+            if (Math.random() < 0.05) {
+                if (state.home.type === 'street' || state.home.type === 'box' || state.home.type === 'shed') {
+                    if (Math.random() > 0.5) { state.hp -= 20; addLog("🥊 Вас избили ночью! -20 ❤️", 'main'); }
+                    else { let loss = Math.min(state.rub, 50); state.rub -= loss; state.counters.total_spent += loss; addLog(`💰 Вас обокрали! -${loss}₽`, 'main'); }
+                } else if (state.home.type === 'dorm') {
+                    if (Math.random() > 0.5) { state.food -= 20; addLog("🍕 Соседи украли еду! -20 🍕", 'main'); }
+                    else { let loss = Math.min(state.rub, 30); state.rub -= loss; state.counters.total_spent += loss; addLog(`💰 Штраф от коменданта! -${loss}₽`, 'main'); }
+                } else if (state.home.type === 'room' || state.home.type === 'flat_rent') {
+                    let loss = Math.min(state.rub, 50); state.rub -= loss; state.counters.total_spent += loss; addLog(`💰 Проблемы с арендодателем! -${loss}₽`, 'main');
+                }
+            }
+        }
+
+        if (state.food <= 0) { state.food = 0; state.hp -= 20; addLog("⚠️ Голод! -20 ❤️", 'main'); }
+        if (state.happy <= 0) { state.happy = 0; state.hp -= 5; addLog("⚠️ Депрессия. -5 ❤️", 'main'); }
+        if (state.hp <= 0) { gameOver("Вы умерли от истощения."); return; }
+
+        if (state.days % 30 === 0) {
+            state.age++;
+            addLog(`🎂 Вам ${state.age} лет!`, 'main');
+            if (!state.immortal && state.age >= 69) {
+                let chance = (state.age - 69) * 1.5;
+                if (Math.random() * 100 < chance) { gameOver(`Вы умерли от старости в ${state.age} лет.`); return; }
+            }
+        }
+        updateUI(); saveGame();
+    }
+
+    function actionSearchTrash() {
+        if (state.isDead) return;
+        let r = Math.random();
+        if (r < 0.4) { let b = Math.floor(Math.random()*3)+1; state.bottles += b; addLog(`♻️ Получено ${b} бутылок.`, 'work'); }
+        else if (r < 0.7) { let m = Math.floor(Math.random()*20)+5; state.rub += m; state.counters.total_earned_work += m; addLog(`💰 Получено ${m} рублей.`, 'work'); }
+        else { state.hp -= 10; addLog(`🩸 Вы поранились (-10 ❤️).`, 'work'); }
+        skipDay();
+    }
+
+    function actionBeg() {
+        let m = Math.floor(Math.random() * 11) + 5;
+        state.rub += m; state.happy -= 5; state.counters.total_earned_work += m;
+        addLog(`🥺 Собрано ${m} ₽.`, 'work');
+        skipDay();
+    }
+
+    function actionSellBottles() {
+        if (state.bottles === 0) { addLog("У вас нет бутылок.", 'work'); return; }
+        let m = state.bottles * 10;
+        state.rub += m; state.counters.total_earned_work += m;
+        addLog(`📦 Сдано ${state.bottles} бутылок. Получено ${m} ₽.`, 'work');
+        state.bottles = 0;
+        updateUI(); saveGame();
+    }
+
+    function hireTeam() {
+        if (state.hasTeam) { addLog("Команда уже нанята.", 'main'); return; }
+        if (state.edu.science && state.home.type === 'office') {
+            state.hasTeam = true;
+            addLog("👥 IT-команда нанята! Теперь доступна работа Директором.", 'main');
+            state.ach.isaac = true;
+            addLog("🏆 Достижение: Разработчик Айзека", 'main');
+            updateUI(); saveGame();
+        } else {
+            addLog("❌ Требуется научная степень и Офис!", 'main');
+        }
+    }
+
+    function work(job) {
+        if (state.isDead) return;
+
+        let penalty = (state.food < 20 || state.happy < 20) ? 2 : 1;
+        let hpLoss = 0, happyLoss = 0, pay = 0;
+
+        if (job === 'loader') { 
+            if (!state.trans.sneakers) { hpLoss += 15; addLog("⚠️ Без кроссовок урон x2!", 'work'); }
+            pay = 150; hpLoss += 15; happyLoss = 5;
+            state.counters.loader_count++;
+        }
+        if (job === 'waiter') {
+            if(!state.edu.school || !state.trans.rollers) { addLog("❌ Нужна школа и ролики!", 'work'); return; }
+            pay = 250; hpLoss = 10; happyLoss = 10;
+            if (Math.random() < 0.05) { addLog("🤕 Вы упали с роликов! -20 ❤️", 'work'); hpLoss += 20; }
+        }
+        if (job === 'builder') {
+            if(!state.edu.school) { addLog("❌ Требуется школа!", 'work'); return; }
+            pay = 400; hpLoss = 25; happyLoss = 5;
+            if (Math.random() < 0.05) { addLog("🧱 На вас упал кирпич! -30 ❤️", 'work'); hpLoss += 30; }
+        }
+        if (job === 'courier') {
+            if(!state.trans.scooter || !state.tech.phone) { addLog("❌ Нужен самокат и телефон!", 'work'); return; }
+            pay = 600; hpLoss = 10; happyLoss = 10;
+            state.counters.courier_count++;
+        }
+        if (job === 'taxi') {
+            if(!state.edu.license || !state.trans.car || !state.tech.phone) { addLog("❌ Нужны права, машина и телефон!", 'work'); return; }
+            pay = 1200; hpLoss = 10; happyLoss = 15;
+            if (Math.random() < 0.05) { addLog("🚓 Вас оштрафовали! -200 ₽", 'work'); state.rub -= 200; }
+        }
+        if (job === 'mchs') {
+            if(!state.edu.military || !state.edu.bachelor) { addLog("❌ Нужен военный билет и бакалавр!", 'work'); return; }
+            pay = 1500; hpLoss = 20; happyLoss = 15;
+            if (Math.random() < 0.05) { addLog("🔥 Вы получили травму при спасении! -40 ❤️", 'work'); hpLoss += 40; }
+        }
+        if (job === 'programmer') {
+            if(!state.edu.bachelor || !state.tech.computer) { addLog("❌ Нужен бакалавр и компьютер!", 'work'); return; }
+            pay = 3000; hpLoss = 5; happyLoss = 20;
+            if (Math.random() < 0.05) { addLog("💻 Вы выгорели от багов! -30 😊", 'work'); happyLoss += 30; }
+        }
+        if (job === 'pilot') {
+            if(!state.edu.pilot_license || !state.trans.plane) { addLog("❌ Нужна лётная лицензия и самолёт!", 'work'); return; }
+            pay = 8000; hpLoss = 5; happyLoss = 10;
+        }
+        if (job === 'ceo') {
+            if(!state.edu.science || !state.hasTeam || state.home.type !== 'office') { addLog("❌ Нужна степень, команда и офис!", 'work'); return; }
+            pay = 25000; hpLoss = 10; happyLoss = 20;
+        }
+
+        if (penalty > 1) addLog(`⚠️ Работа на износ! Урон x2.`, 'work');
+
+        state.rub += pay;
+        state.counters.total_earned_work += pay;
+        state.counters.total_work_shifts++;
+        state.hp -= (hpLoss * penalty);
+        state.happy -= (happyLoss * penalty);
+
+        addLog(`💼 Отработано: +${pay} ₽, -${hpLoss * penalty} ❤️, -${happyLoss * penalty} 😊`, 'work');
+        
+        if (state.hp <= 0) { gameOver("Вы умерли на работе."); return; }
+        skipDay();
+    }
+
+    function buyItem(item) {
+        if (item === 'trash_food') { state.food += 20; state.hp -= 10; addLog("🗑️ Поел с помойки (+20🍕, -10❤️).", 'life'); }
+        else if (item === 'shawarma' && state.rub >= 60) { state.rub -= 60; state.counters.total_spent += 60; state.food += 40; addLog("🌯 Съел шаурму.", 'life'); }
+        else if (item === 'pizza' && state.rub >= 150) { state.rub -= 150; state.counters.total_spent += 150; state.food += 70; addLog("🍕 Съел пиццу.", 'life'); }
+        else if (item === 'steak' && state.rub >= 300) { state.rub -= 300; state.counters.total_spent += 300; state.food += 100; addLog("🥩 Съел стейк.", 'life'); }
+        else if (item === 'restaurant' && state.rub >= 1000) { state.rub -= 1000; state.counters.total_spent += 1000; state.food = 100; state.happy += 20; addLog("🍽️ Поужинал в ресторане.", 'life'); }
+        else if (item === 'walk') { if(state.food >= 10) { state.food -= 10; state.happy += 10; addLog("🚶 Погулял.", 'life'); } else { addLog("❌ Слишком голоден для прогулки.", 'life'); return; } }
+        else if (item === 'beer' && state.rub >= 40) { state.rub -= 40; state.counters.total_spent += 40; state.happy += 25; state.hp -= 5; addLog("🍺 Выпил пива.", 'life'); }
+        else if (item === 'wine' && state.rub >= 100) { state.rub -= 100; state.counters.total_spent += 100; state.happy += 40; state.hp -= 2; addLog("🍷 Выпил вина.", 'life'); }
+        else if (item === 'attractions' && state.rub >= 200) { state.rub -= 200; state.counters.total_spent += 200; state.happy += 50; state.counters.attractions_count++; addLog("🎡 Покатался на аттракционах.", 'life'); }
+        else if (item === 'boat_rest') { state.happy = 100; state.food -= 30; addLog("🛥️ Отдохнул на катере! +100 😊, -30 🍕", 'life'); }
+        else { addLog("❌ Недостаточно средств или условий.", 'life'); return; }
+        
+        if(state.food>100) state.food=100; if(state.happy>100) state.happy=100;
+        updateUI(); saveGame();
+    }
+
+    function heal(item) {
+        if (item === 'trash_pills') {
+            if (Math.random() > 0.5) { state.hp += 15; state.happy -= 10; addLog("💊 Таблетки помогли (+15 ❤️, -10 😊).", 'life'); }
+            else { state.hp -= 10; addLog("🤢 Просроченные таблетки (-10 ❤️).", 'life'); }
+        }
+        else if (item === 'grandma_pills' && state.rub >= 80) { state.rub -= 80; state.counters.total_spent += 80; state.hp += 25; addLog("👵 Бабушкины лекарства (+25 ❤️).", 'life'); }
+        else if (item === 'antibiotics' && state.rub >= 150) { state.rub -= 150; state.counters.total_spent += 150; state.hp += 60; state.food -= 20; addLog("💉 Антибиотики (+60 ❤️, -20 🍕).", 'life'); }
+        else { addLog("❌ Недостаточно средств.", 'life'); return; }
+        if(state.hp>100) state.hp=100; updateUI(); saveGame();
+    }
+
+    function buySub(sub) {
+        if (!['flat_rent', 'studio', 'flat_own', 'townhouse', 'penthouse', 'office', 'mansion'].includes(state.home.type)) { 
+            addLog("❌ Нужна аренда квартиры или лучше!", 'life'); return; 
+        }
+        if (sub === 'doctor' && !state.subs.doctor) { state.subs.doctor = true; addLog("🏥 Врач нанят (3000₽/день).", 'main'); }
+        else if (sub === 'cook' && !state.subs.cook) { state.subs.cook = true; addLog("👨‍🍳 Повар нанят (1500₽/день).", 'main'); }
+        else if (sub === 'friend' && !state.subs.friend) { state.subs.friend = true; addLog("🤝 Друг нанят (800₽/день).", 'main'); }
+        else { addLog("❌ Подписка уже активна.", 'main'); return; }
+        updateUI(); saveGame();
+    }
+
+    function study(item) {
+        if (item === 'school' && state.rub >= 200 && !state.edu.school) { state.rub -= 200; state.counters.total_spent += 200; state.edu.school = true; addLog("🎓 Вы окончили школу!", 'main'); }
+        else if (item === 'bachelor' && state.rub >= 5000 && state.edu.school && !state.edu.bachelor) { state.rub -= 5000; state.counters.total_spent += 5000; state.edu.bachelor = true; addLog("🎓 Вы получили степень Бакалавра!", 'main'); }
+        else if (item === 'master' && state.rub >= 20000 && state.edu.bachelor && !state.edu.master) { state.rub -= 20000; state.counters.total_spent += 20000; state.edu.master = true; addLog("🎓 Вы окончили Магистратуру!", 'main'); }
+        else if (item === 'science' && state.rub >= 50000 && state.edu.master && !state.edu.science) { state.rub -= 50000; state.counters.total_spent += 50000; state.edu.science = true; addLog("🔬 Вы получили Научную степень!", 'main'); }
+        else if (item === 'license' && state.rub >= 300 && !state.edu.license) { state.rub -= 300; state.counters.total_spent += 300; state.edu.license = true; addLog("🚗 Вы сдали на права!", 'main'); }
+        else if (item === 'military' && state.rub >= 100 && !state.edu.military) { state.rub -= 100; state.counters.total_spent += 100; state.edu.military = true; addLog("🪖 Вы получили военный билет!", 'main'); }
+        else if (item === 'pilot_license' && state.usd >= 100 && !state.edu.pilot_license) { state.usd -= 100; state.edu.pilot_license = true; addLog("✈️ Вы получили лётную лицензию!", 'main'); }
+        else { addLog("❌ Не хватает денег или предыдущего образования.", 'main'); return; }
+        updateUI(); saveGame();
+    }
+
+    function buyImmortality() {
+        if (state.immortal) { addLog("Вы уже бессмертны!", 'main'); return; }
+        if (state.usd >= 10000) { state.usd -= 10000; state.immortal = true; state.ach.immortal = true; addLog("💊 Вы купили Таблетку Бессмертия! Смерть от старости отключена.", 'main'); }
+        else { addLog("❌ Нужно 10 000 $!", 'main'); }
+        updateUI(); saveGame();
+    }
+
+    function buyTransport(item) {
+        if (item === 'sneakers' && state.rub >= 500 && !state.trans.sneakers) { state.rub -= 500; state.counters.total_spent += 500; state.trans.sneakers = true; addLog("👟 Куплены кроссовки!", 'main'); }
+        else if (item === 'rollers' && state.rub >= 1500 && !state.trans.rollers) { state.rub -= 1500; state.counters.total_spent += 1500; state.trans.rollers = true; addLog("🛼 Куплены ролики!", 'main'); }
+        else if (item === 'scooter_rent' && state.rub >= 50 && !state.trans.scooter) { state.rub -= 50; state.counters.total_spent += 50; state.trans.scooter = true; addLog("🛴 Самокат арендован.", 'main'); }
+        else if (item === 'scooter' && state.rub >= 5000 && !state.trans.scooter_bought) { state.rub -= 5000; state.counters.total_spent += 5000; state.trans.scooter = true; state.trans.scooter_bought = true; addLog("🛴 Самокат куплен!", 'main'); }
+        else if (item === 'car' && state.rub >= 30000 && !state.trans.car) { state.rub -= 30000; state.counters.total_spent += 30000; state.trans.car = true; addLog("🚗 Куплена машина!", 'main'); }
+        else if (item === 'boat' && state.rub >= 100000 && !state.trans.boat) { state.rub -= 100000; state.counters.total_spent += 100000; state.trans.boat = true; addLog("🛥️ Куплен катер!", 'main'); }
+        else if (item === 'helicopter' && state.rub >= 150000 && !state.trans.helicopter) { state.rub -= 150000; state.counters.total_spent += 150000; state.trans.helicopter = true; addLog("🚁 Куплен вертолёт!", 'main'); }
+        else if (item === 'plane' && state.rub >= 500000 && !state.trans.plane) { state.rub -= 500000; state.counters.total_spent += 500000; state.trans.plane = true; addLog("✈️ Куплен самолёт!", 'main'); }
+        else { addLog("❌ Недостаточно средств или уже куплено.", 'main'); return; }
+        updateUI(); saveGame();
+    }
+
+    function buyTech(item) {
+        if (item === 'phone' && state.rub >= 3000 && !state.tech.phone) { state.rub -= 3000; state.counters.total_spent += 3000; state.tech.phone = true; addLog("📱 Куплен телефон!", 'main'); }
+        else if (item === 'computer' && state.rub >= 25000 && !state.tech.computer) { state.rub -= 25000; state.counters.total_spent += 25000; state.tech.computer = true; addLog("💻 Куплен компьютер!", 'main'); }
+        else { addLog("❌ Недостаточно средств или уже куплено.", 'main'); return; }
+        updateUI(); saveGame();
+    }
+
+    function buyHome(type) {
+        if (state.home.type === type) { addLog("Вы уже здесь живете.", 'home'); return; }
+        let prices = { box: 100, studio: 50000, flat_own: 150000, townhouse: 500000, penthouse: 1500000, office: 2000000, mansion: 5000000 };
+        if (prices[type] && state.rub >= prices[type]) {
+            state.rub -= prices[type];
+            state.counters.total_spent += prices[type];
+            state.counters.home_changes++;
+            state.home = { type: type, rent: 0 };
+            addLog(`🏠 Вы купили жильё: ${type}!`, 'home');
+            updateUI(); saveGame();
+        } else {
+            addLog("❌ Недостаточно средств.", 'home');
+        }
+    }
+
+    function rentHome(type) {
+        let rents = { shed: 100, dorm: 150, room: 300, flat_rent: 1000 };
+        if (rents[type]) {
+            state.counters.home_changes++;
+            state.home = { type: type, rent: rents[type] };
+            addLog(`🏠 Вы арендовали жильё: ${type} (${rents[type]}₽/день).`, 'home');
+            updateUI(); saveGame();
+        }
+    }
+
+    function playCasino() {
+        let bet = parseInt(document.getElementById('bet-amount').value);
+        if (isNaN(bet) || bet <= 0) { addLog("Введите ставку.", 'main'); return; }
+        if (state.usd < bet) { addLog("❌ Недостаточно долларов.", 'main'); return; }
+        
+        state.usd -= bet;
+        if (Math.random() > 0.5) { 
+            state.usd += bet * 2; 
+            addLog(`🎰 Выигрыш $${bet * 2}!`, 'main'); 
+            state.counters.casino_wins++;
+            if (bet >= 1000) { state.ach.lucky = true; addLog("🏆 Достижение: Счастливчик", 'main'); }
+        }
+        else { addLog(`🎰 Проигрыш $${bet}.`, 'main'); }
+        updateUI(); saveGame();
+    }
+
+    function checkAchievements() {
+        // Грузаль Никитос
+        if (state.counters.loader_count >= 10 && !state.ach.gruzal) { state.ach.gruzal = true; addLog("🏆 Достижение: Грузаль Никитос", 'main'); }
+        // Курьер Владос
+        if (state.counters.courier_count >= 10 && !state.ach.courier) { state.ach.courier = true; addLog("🏆 Достижение: Курьер Владос", 'main'); }
+        // Аристократ
+        if ((state.trans.boat || state.trans.helicopter) && !state.ach.aristocrat) { state.ach.aristocrat = true; addLog("🏆 Достижение: Бомж-аристократ", 'main'); }
+        // Транжира
+        if (state.counters.total_spent >= 500000 && !state.ach.spender) { state.ach.spender = true; addLog("🏆 Достижение: Транжира", 'main'); }
+        // Тайный миллионер
+        if (state.rub >= 100000 && ['street', 'box', 'shed'].includes(state.home.type) && !state.ach.secret_millionaire) { state.ach.secret_millionaire = true; addLog("🏆 Достижение: Тайный миллионер", 'main'); }
+        // Трудоголик
+        if (state.counters.total_work_shifts >= 100 && !state.ach.workaholic) { state.ach.workaholic = true; addLog("🏆 Достижение: Трудоголик", 'main'); }
+        // Долгожитель
+        if (state.age >= 80 && !state.ach.longliver) { state.ach.longliver = true; addLog("🏆 Достижение: Долгожитель", 'main'); }
+        // Шопоголик
+        if (state.trans.sneakers && state.trans.rollers && state.trans.scooter && state.trans.car && state.trans.boat && state.trans.helicopter && state.trans.plane && state.tech.phone && state.tech.computer && !state.ach.shopaholic) { state.ach.shopaholic = true; addLog("🏆 Достижение: Шопоголик", 'main'); }
+        // Тусовщик
+        if (state.counters.attractions_count >= 10 && !state.ach.partier) { state.ach.partier = true; addLog("🏆 Достижение: Тусовщик", 'main'); }
+        // Кочевник
+        if (state.counters.home_changes >= 5 && !state.ach.nomad) { state.ach.nomad = true; addLog("🏆 Достижение: Кочевник", 'main'); }
+    }
+
+    function updateAchievementsList() {
+        const list = document.getElementById('achievements-list');
+        list.innerHTML = '';
+        let achievements = [
+            { id: 'gruzal', name: 'Грузаль Никитос', desc: '10 смен грузчиком' },
+            { id: 'courier', name: 'Курьер Владос', desc: '10 смен курьером' },
+            { id: 'isaac', name: 'Разработчик Айзека', desc: 'Нанять IT-команду' },
+            { id: 'immortal', name: 'Бессмертный', desc: 'Купить Таблетку Бессмертия' },
+            { id: 'aristocrat', name: 'Бомж-аристократ', desc: 'Купить катер или вертолёт' },
+            { id: 'spender', name: 'Транжира', desc: 'Потратить 500 000 ₽ за игру' },
+            { id: 'secret_millionaire', name: 'Тайный миллионер', desc: 'Накопить 100 000 ₽, живя в коробке' },
+            { id: 'workaholic', name: 'Трудоголик', desc: 'Отработать 100 смен' },
+            { id: 'lucky', name: 'Счастливчик', desc: 'Выиграть в казино $1000+ за раз' },
+            { id: 'longliver', name: 'Долгожитель', desc: 'Дожить до 80 лет' },
+            { id: 'shopaholic', name: 'Шопоголик', desc: 'Купить весь транспорт и технику' },
+            { id: 'partier', name: 'Тусовщик', desc: 'Сходить на аттракционы 10 раз' },
+            { id: 'nomad', name: 'Кочевник', desc: 'Сменить жильё 5 раз' }
+        ];
+
+        achievements.forEach(a => {
+            let div = document.createElement('div');
+            div.className = 'action-btn';
+            div.style.justifyContent = 'space-between';
+            div.innerHTML = `<span>${a.name}<span style="font-size:10px; color:#7f8c8d; display:block;">${a.desc}</span></span><span style="font-size:16px;">${state.ach[a.id] ? '✅' : '🔒'}</span>`;
+            list.appendChild(div);
+        });
+    }
+
+    function gameOver(reason) {
+        state.isDead = true;
+        localStorage.removeItem(SAVE_KEY);
+        document.body.innerHTML = `<div style="text-align:center; color:white; padding: 20px; font-family:sans-serif;">
+            <h1>💀 GAME OVER</h1>
+            <p style="font-size:18px; margin:20px 0;">${reason}</p>
+            <p>Вы прожили: ${state.days} дней.</p>
+            <button onclick="location.reload()" style="padding: 10px 20px; margin-top: 20px; font-size: 16px; cursor:pointer;">В главное меню</button>
+        </div>`;
+    }
+</script>
+</body>
+</html>
