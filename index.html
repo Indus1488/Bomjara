@@ -92,6 +92,10 @@
         /* Секретная кнопка */
         #secret-btn { background: none; border: none; font-size: 20px; cursor: pointer; opacity: 0.15; padding: 10px; display: block; margin: 4px auto 0 auto; transition: opacity 0.2s; user-select: none; }
         #secret-btn:active { opacity: 0.4; }
+
+        /* Курс доллара */
+        .rate-info { text-align:center; font-size:13px; font-weight:bold; margin-bottom:3px; color:#2980b9; }
+        .rate-info .rate-val { color:#e67e22; }
     </style>
 </head>
 <body>
@@ -141,7 +145,7 @@
                     </div>
                 </div>
                 <div class="slider-container">
-                    <div style="text-align:center; font-size:13px; font-weight:bold; margin-bottom:3px;">Обмен валют (60₽ = 1$)</div>
+                    <div class="rate-info">💱 Курс: <span class="rate-val" id="rate-display">60</span> ₽ = 1$ <span style="font-size:11px;color:#7f8c8d;">(меняется раз в 7 дней)</span></div>
                     <input type="range" id="currency-slider" min="0" max="0" value="0" oninput="updateSlider()">
                     <div class="slider-vals"><span id="slider-rub">0 ₽</span><span id="slider-usd">0 $</span></div>
                     <button class="action-btn" style="justify-content:center; margin-top:5px;" onclick="doExchange()">Обменять</button>
@@ -179,10 +183,10 @@
             <div id="tab-life" class="tab-content">
                 <h3>Быт</h3>
                 <div class="section-title">Еда</div>
-                <button class="action-btn" onclick="buyItem('trash_food')"><span>🗑️ Еда с помойки</span><span class="cost">Бесплатно / -10 ❤️</span></button>
-                <button class="action-btn" onclick="buyItem('shawarma')"><span>🌯 Шаурма</span><span class="cost">70 ₽ / +40 🍕 / -5 ❤️</span></button>
-                <button class="action-btn" onclick="buyItem('pizza')"><span>🍕 Пицца</span><span class="cost">150 ₽ / +70 🍕</span></button>
-                <button class="action-btn" onclick="buyItem('steak')"><span>🥩 Стейк</span><span class="cost">300 ₽ / +100 🍕</span></button>
+                <button class="action-btn" onclick="buyItem('trash_food')"><span>🗑️ Еда с помойки</span><span class="cost">Бесплатно / +30 🍕 / -10 ❤️</span></button>
+                <button class="action-btn" onclick="buyItem('shawarma')"><span>🌯 Шаурма</span><span class="cost">70 ₽ / +35 🍕 / -5 ❤️</span></button>
+                <button class="action-btn" onclick="buyItem('pizza')"><span>🍕 Пицца</span><span class="cost">150 ₽ / +60 🍕</span></button>
+                <button class="action-btn" onclick="buyItem('steak')"><span>🥩 Стейк</span><span class="cost">300 ₽ / +70 🍕</span></button>
                 <button class="action-btn" onclick="buyItem('restaurant')"><span>🍽️ Ресторан</span><span class="cost">800 ₽ / +100 🍕, +20 😊</span></button>
                 <button class="action-btn" onclick="buySub('cook')" id="btn-sub-cook"><span class="check-mark">✅</span><span>👨‍🍳 Личный повар (подписка)</span><span class="cost">1000 ₽ / день / +100 🍕</span></button>
                 <div class="section-title">Досуг</div>
@@ -282,6 +286,11 @@
     const WARN_THRESHOLD = 15;
     let warnCallback = null;
 
+    // Курс доллара
+    const USD_RATE_MIN = 30;
+    const USD_RATE_MAX = 90;
+    const USD_RATE_CHANGE_DAYS = 7;
+
     // Награды за достижения
     const ACH_REWARDS = {
         gruzal: 500, courier: 1000, isaac: 2000, immortal: 10000,
@@ -297,6 +306,10 @@
     };
 
     let secretClicks = 0;
+
+    function randomUsdRate() {
+        return Math.floor(Math.random() * (USD_RATE_MAX - USD_RATE_MIN + 1)) + USD_RATE_MIN;
+    }
 
     function checkAndWarn(losses, onConfirm) {
         let warnings = [];
@@ -369,11 +382,11 @@
         let counters = { loader_count: 0, courier_count: 0, total_spent: 0, total_earned_work: 0, total_work_shifts: 0, home_changes: 0, casino_wins: 0, attractions_count: 0 };
 
         if (diff === 'easy') {
-            state = { hp: 100, food: 100, happy: 100, rub: 2000, usd: 0, bank: 0, bottles: 0, age: 18, days: 0, isDead: false, immortal: false, hasTeam: false, secretUsed: false, edu: { ...baseEdu, school: true }, trans: baseTrans, tech: baseTech, home: baseHome, subs: baseSubs, ach: baseAch, counters: counters };
+            state = { hp: 100, food: 100, happy: 100, rub: 2000, usd: 0, bank: 0, bottles: 0, age: 18, days: 0, isDead: false, immortal: false, hasTeam: false, secretUsed: false, usdRate: randomUsdRate(), usdRateDay: 0, edu: { ...baseEdu, school: true }, trans: baseTrans, tech: baseTech, home: baseHome, subs: baseSubs, ach: baseAch, counters: counters };
         } else if (diff === 'normal') {
-            state = { hp: 100, food: 100, happy: 100, rub: 200, usd: 0, bank: 0, bottles: 0, age: 25, days: 0, isDead: false, immortal: false, hasTeam: false, secretUsed: false, edu: baseEdu, trans: baseTrans, tech: baseTech, home: baseHome, subs: baseSubs, ach: baseAch, counters: counters };
+            state = { hp: 100, food: 100, happy: 100, rub: 200, usd: 0, bank: 0, bottles: 0, age: 25, days: 0, isDead: false, immortal: false, hasTeam: false, secretUsed: false, usdRate: randomUsdRate(), usdRateDay: 0, edu: baseEdu, trans: baseTrans, tech: baseTech, home: baseHome, subs: baseSubs, ach: baseAch, counters: counters };
         } else if (diff === 'hard') {
-            state = { hp: 50, food: 50, happy: 50, rub: 50, usd: 0, bank: 0, bottles: 0, age: 45, days: 0, isDead: false, immortal: false, hasTeam: false, secretUsed: false, edu: baseEdu, trans: baseTrans, tech: baseTech, home: baseHome, subs: baseSubs, ach: baseAch, counters: counters };
+            state = { hp: 50, food: 50, happy: 50, rub: 50, usd: 0, bank: 0, bottles: 0, age: 45, days: 0, isDead: false, immortal: false, hasTeam: false, secretUsed: false, usdRate: randomUsdRate(), usdRateDay: 0, edu: baseEdu, trans: baseTrans, tech: baseTech, home: baseHome, subs: baseSubs, ach: baseAch, counters: counters };
         }
         
         secretClicks = 0;
@@ -381,6 +394,7 @@
         document.getElementById('game-ui').style.display = 'flex';
         document.getElementById('main-log').innerHTML = ''; 
         addLog("Новая игра начата.", 'main');
+        addLog(`💱 Стартовый курс доллара: ${state.usdRate} ₽ = 1$`, 'main');
         saveGame();
         updateUI();
     }
@@ -390,6 +404,8 @@
         if (saved) {
             state = JSON.parse(saved);
             if (state.secretUsed === undefined) state.secretUsed = false;
+            if (state.usdRate === undefined) state.usdRate = randomUsdRate();
+            if (state.usdRateDay === undefined) state.usdRateDay = state.days || 0;
             secretClicks = 0;
             document.getElementById('start-menu').style.display = 'none';
             document.getElementById('game-ui').style.display = 'flex';
@@ -450,6 +466,8 @@
         document.getElementById('days').innerText = state.days;
         document.getElementById('bank-val').innerText = Math.floor(state.bank) + " ₽";
 
+        document.getElementById('rate-display').innerText = state.usdRate;
+
         let eduArr = [];
         if (state.edu.school) eduArr.push("Школа");
         if (state.edu.bachelor) eduArr.push("Бакалавр");
@@ -466,7 +484,8 @@
         let transArr = [];
         if (state.trans.sneakers) transArr.push("Кроссовки");
         if (state.trans.rollers) transArr.push("Ролики");
-        if (state.trans.scooter) transArr.push("Самокат");
+        if (state.trans.scooter_bought) transArr.push("Самокат (свой)");
+        else if (state.trans.scooter) transArr.push("Самокат (аренда)");
         if (state.trans.car) transArr.push("Машина");
         if (state.trans.boat) transArr.push("Катер");
         if (state.trans.helicopter) transArr.push("Вертолёт");
@@ -575,8 +594,8 @@
         else secretBtn.style.display = 'block';
 
         const slider = document.getElementById('currency-slider');
-        slider.max = Math.floor(state.rub / 60);
-        if (slider.value > slider.max) slider.value = slider.max;
+        slider.max = Math.floor(state.rub / state.usdRate);
+        if (parseInt(slider.value) > slider.max) slider.value = slider.max;
         updateSlider();
 
         updateAchievementsList();
@@ -588,16 +607,18 @@
     }
 
     function updateSlider() {
-        const val = parseInt(document.getElementById('currency-slider').value);
-        document.getElementById('slider-rub').innerText = (val * 60) + " ₽";
+        const val = parseInt(document.getElementById('currency-slider').value) || 0;
+        document.getElementById('slider-rub').innerText = (val * state.usdRate) + " ₽";
         document.getElementById('slider-usd').innerText = val + " $";
     }
 
     function doExchange() {
-        const val = parseInt(document.getElementById('currency-slider').value);
+        const val = parseInt(document.getElementById('currency-slider').value) || 0;
         if (val > 0) {
-            state.rub -= val * 60; state.usd += val;
-            addLog(`💱 Обменяно ${val * 60}₽ на ${val}$.`, 'main');
+            const cost = val * state.usdRate;
+            if (state.rub < cost) { addLog("❌ Недостаточно рублей.", 'main'); return; }
+            state.rub -= cost; state.usd += val;
+            addLog(`💱 Обменяно ${cost}₽ на ${val}$ (курс ${state.usdRate}₽).`, 'main');
             updateUI(); saveGame();
         }
     }
@@ -650,66 +671,71 @@
     }
 
     function skipDay(foodLoss, happyLoss) {
-    if (state.isDead) return;
-    // Если параметры не переданы — стандартные значения (для помойки, попрошайничества и т.д.)
-    let fLoss = (foodLoss !== undefined) ? foodLoss : 20;
-    let hLoss = (happyLoss !== undefined) ? happyLoss : 10;
+        if (state.isDead) return;
+        let fLoss = (foodLoss !== undefined) ? foodLoss : 20;
+        let hLoss = (happyLoss !== undefined) ? happyLoss : 10;
 
-    state.days++;
-    state.food -= fLoss;
-    state.happy -= hLoss;
+        state.days++;
+        state.food -= fLoss;
+        state.happy -= hLoss;
 
-    if (state.food < 0) state.food = 0;
-    if (state.happy < 0) state.happy = 0;
+        if (state.food < 0) state.food = 0;
+        if (state.happy < 0) state.happy = 0;
 
-    state.bank = Math.floor(state.bank * 1.01);
-    
-    if (state.home.rent > 0) {
-        if (state.rub >= state.home.rent) { state.rub -= state.home.rent; addLog(`🏠 Оплачена аренда жилья (-${state.home.rent}₽).`, 'main'); state.counters.total_spent += state.home.rent; }
-        else { state.home = { type: 'street', rent: 0 }; state.counters.home_changes++; addLog("❌ Вас выселили за неуплату! Вернулись на улицу.", 'main'); }
-    }
-
-    if (state.trans.scooter && !state.trans.scooter_bought) {
-        state.rub -= 50; state.counters.total_spent += 50;
-        if (state.rub < 0) { state.trans.scooter = false; state.rub = 0; addLog("❌ Аренда самоката не оплачена.", 'main'); }
-        else addLog("🛴 Списано 50₽ за самокат.", 'main');
-    }
-
-    if (state.hasTeam) {
-        if (state.rub >= 3000) { state.rub -= 3000; state.counters.total_spent += 3000; addLog("👥 Оплачена IT-команда (-3000₽).", 'main'); }
-        else { state.hasTeam = false; addLog("❌ IT-команда разбежалась (нет денег).", 'main'); }
-    }
-
-    if (state.subs.doctor) {
-        if (state.rub >= 2000) { state.rub -= 2000; state.counters.total_spent += 2000; state.hp = 100; addLog("🏥 Врач вылечил до максимума.", 'main'); }
-        else { state.subs.doctor = false; addLog("❌ Врач уволен (нет денег).", 'main'); }
-    }
-    if (state.subs.cook) {
-        if (state.rub >= 1000) { state.rub -= 1000; state.counters.total_spent += 1000; state.food = 100; addLog("👨‍🍳 Повар накормил до максимума.", 'main'); }
-        else { state.subs.cook = false; addLog("❌ Повар уволен (нет денег).", 'main'); }
-    }
-    if (state.subs.friend) {
-        if (state.rub >= 600) { state.rub -= 600; state.counters.total_spent += 600; state.happy += 50; if(state.happy>100) state.happy=100; addLog("🤝 Друг поднял настроение (+50😊).", 'main'); }
-        else { state.subs.friend = false; addLog("❌ Друг ушел (нет денег).", 'main'); }
-    }
-
-    // Штрафы за нулевые шкалы — только если еда/счастье реально были 0 ДО начала дня
-    if (state.food <= 0) { state.food = 0; state.hp -= 10; addLog("⚠️ Сильный голод! Организм истощен. -10 ❤️", 'main'); }
-    if (state.happy <= 0) { state.happy = 0; state.hp -= 10; addLog("⚠️ Глубокая депрессия! Вы теряете волю к жизни. -10 ❤️", 'main'); }
-    
-    if (state.hp < 0) state.hp = 0;
-    if (state.hp <= 0) { gameOver("Вы умерли от истощения и болезней."); return; }
-
-    if (state.days % 30 === 0) {
-        state.age++;
-        addLog(`🎂 Вам ${state.age} лет!`, 'main');
-        if (!state.immortal && state.age >= 69) {
-            let chance = (state.age - 69) * 1.5;
-            if (Math.random() * 100 < chance) { gameOver(`Вы умерли от старости в ${state.age} лет.`); return; }
+        // Динамический курс доллара — раз в 7 дней
+        if (state.days % USD_RATE_CHANGE_DAYS === 0 && state.days !== state.usdRateDay) {
+            state.usdRate = randomUsdRate();
+            state.usdRateDay = state.days;
+            addLog(`💱 Курс доллара изменился: ${state.usdRate} ₽ = 1$`, 'main');
         }
+
+        state.bank = Math.floor(state.bank * 1.01);
+        
+        if (state.home.rent > 0) {
+            if (state.rub >= state.home.rent) { state.rub -= state.home.rent; addLog(`🏠 Оплачена аренда жилья (-${state.home.rent}₽).`, 'main'); state.counters.total_spent += state.home.rent; }
+            else { state.home = { type: 'street', rent: 0 }; state.counters.home_changes++; addLog("❌ Вас выселили за неуплату! Вернулись на улицу.", 'main'); }
+        }
+
+        if (state.trans.scooter && !state.trans.scooter_bought) {
+            state.rub -= 50; state.counters.total_spent += 50;
+            if (state.rub < 0) { state.trans.scooter = false; state.rub = 0; addLog("❌ Аренда самоката не оплачена.", 'main'); }
+            else addLog("🛴 Списано 50₽ за самокат.", 'main');
+        }
+
+        if (state.hasTeam) {
+            if (state.rub >= 3000) { state.rub -= 3000; state.counters.total_spent += 3000; addLog("👥 Оплачена IT-команда (-3000₽).", 'main'); }
+            else { state.hasTeam = false; addLog("❌ IT-команда разбежалась (нет денег).", 'main'); }
+        }
+
+        if (state.subs.doctor) {
+            if (state.rub >= 2000) { state.rub -= 2000; state.counters.total_spent += 2000; state.hp = 100; addLog("🏥 Врач вылечил до максимума.", 'main'); }
+            else { state.subs.doctor = false; addLog("❌ Врач уволен (нет денег).", 'main'); }
+        }
+        if (state.subs.cook) {
+            if (state.rub >= 1000) { state.rub -= 1000; state.counters.total_spent += 1000; state.food = 100; addLog("👨‍🍳 Повар накормил до максимума.", 'main'); }
+            else { state.subs.cook = false; addLog("❌ Повар уволен (нет денег).", 'main'); }
+        }
+        if (state.subs.friend) {
+            if (state.rub >= 600) { state.rub -= 600; state.counters.total_spent += 600; state.happy += 50; if(state.happy>100) state.happy=100; addLog("🤝 Друг поднял настроение (+50😊).", 'main'); }
+            else { state.subs.friend = false; addLog("❌ Друг ушел (нет денег).", 'main'); }
+        }
+
+        if (state.food <= 0) { state.food = 0; state.hp -= 10; addLog("⚠️ Сильный голод! Организм истощен. -10 ❤️", 'main'); }
+        if (state.happy <= 0) { state.happy = 0; state.hp -= 10; addLog("⚠️ Глубокая депрессия! Вы теряете волю к жизни. -10 ❤️", 'main'); }
+        
+        if (state.hp < 0) state.hp = 0;
+        if (state.hp <= 0) { gameOver("Вы умерли от истощения и болезней."); return; }
+
+        if (state.days % 30 === 0) {
+            state.age++;
+            addLog(`🎂 Вам ${state.age} лет!`, 'main');
+            if (!state.immortal && state.age >= 69) {
+                let chance = (state.age - 69) * 1.5;
+                if (Math.random() * 100 < chance) { gameOver(`Вы умерли от старости в ${state.age} лет.`); return; }
+            }
+        }
+        updateUI(); saveGame();
     }
-    updateUI(); saveGame();
-}
 
     function actionSearchTrash() {
         if (state.isDead) return;
@@ -795,25 +821,26 @@
             pay = 15000; hpLoss = 10; happyLoss = 12;
         }
 
-        // Голод работы с учётом транспорта
         let baseFood = JOB_FOOD[job] !== undefined ? JOB_FOOD[job] : 20;
         let foodLoss = Math.round(baseFood * (1 - getFoodReduction() / 100));
+        let finalHappyLoss = happyLoss * penalty;
+        let finalHpLoss = hpLoss * penalty;
 
-        checkAndWarn({ hp: hpLoss * penalty, happy: happyLoss * penalty, food: foodLoss }, () => {
+        checkAndWarn({ hp: finalHpLoss, happy: finalHappyLoss, food: foodLoss }, () => {
             if (penalty > 1) addLog(`⚠️ Работа на износ! Урон x2.`, 'work');
             if (!state.trans.sneakers && job === 'loader') addLog("⚠️ Без кроссовок урон x2!", 'work');
             
-            if (job === 'waiter' && Math.random() < 0.05) { addLog("🤕 Вы упали с роликов! -20 ❤️", 'work'); hpLoss += 20; }
-            if (job === 'builder' && Math.random() < 0.05) { addLog("🧱 На вас упал кирпич! -30 ❤️", 'work'); hpLoss += 30; }
+            if (job === 'waiter' && Math.random() < 0.05) { addLog("🤕 Вы упали с роликов! -20 ❤️", 'work'); finalHpLoss += 20; }
+            if (job === 'builder' && Math.random() < 0.05) { addLog("🧱 На вас упал кирпич! -30 ❤️", 'work'); finalHpLoss += 30; }
             if (job === 'taxi' && Math.random() < 0.05) { addLog("🚓 Вас оштрафовали! -200 ₽", 'work'); state.rub -= 200; }
-            if (job === 'mchs' && Math.random() < 0.05) { addLog("🔥 Вы получили травму при спасении! -40 ❤️", 'work'); hpLoss += 40; }
-            if (job === 'programmer' && Math.random() < 0.05) { addLog("💻 Вы выгорели от багов! -30 😊", 'work'); happyLoss += 30; }
+            if (job === 'mchs' && Math.random() < 0.05) { addLog("🔥 Вы получили травму при спасении! -40 ❤️", 'work'); finalHpLoss += 40; }
+            if (job === 'programmer' && Math.random() < 0.05) { addLog("💻 Вы выгорели от багов! -30 😊", 'work'); finalHappyLoss += 30; }
 
             state.rub += pay;
             state.counters.total_earned_work += pay;
             state.counters.total_work_shifts++;
-            state.hp -= (hpLoss * penalty);
-            state.happy -= (happyLoss * penalty);
+            state.hp -= finalHpLoss;
+            state.happy -= finalHappyLoss;
             if (job === 'loader') state.counters.loader_count++;
             if (job === 'courier') state.counters.courier_count++;
             
@@ -821,108 +848,72 @@
             if (state.happy < 0) state.happy = 0;
 
             let foodLabel = getFoodReduction() > 0 ? ` (🍕 -${getFoodReduction()}% от транспорта)` : '';
-            addLog(`💼 Отработано: +${pay} ₽, -${hpLoss * penalty} ❤️, -${happyLoss * penalty} 😊${foodLabel}`, 'work');
+            addLog(`💼 Отработано: +${pay} ₽, -${finalHpLoss} ❤️, -${finalHappyLoss} 😊, -${foodLoss} 🍕${foodLabel}`, 'work');
             
             if (state.hp <= 0) { gameOver("Вы умерли на работе."); return; }
 
-            // skipDay списывает 20 еды. Компенсируем разницу до нужного значения работы.
-            let foodBefore = state.food;
-            skipDay();
-            if (!state.isDead) {
-                let targetLoss = foodLoss;
-                let actualLoss = foodBefore - state.food;
-                let correction = actualLoss - targetLoss;
-                if (correction > 0) {
-                    state.food += correction;
-                    if (state.food > 100) state.food = 100;
-                } else if (correction < 0) {
-                    state.food += correction;
-                    if (state.food < 0) state.food = 0;
-                }
-                updateUI(); saveGame();
-            }
+            skipDay(foodLoss, 0);
         });
     }
 
-    function work(job) {
-    if (state.isDead) return;
+    // === ЕДА И ДОСУГ ===
+    function buyItem(item) {
+        if (state.isDead) return;
+        const items = {
+            // Еда
+            trash_food:  { cost: 0,   food: 30,  hp: -10, log: "🗑️ Вы поели с помойки" },
+            shawarma:    { cost: 70,  food: 35,  hp: -5,  log: "🌯 Вы съели шаурму" },
+            pizza:       { cost: 150, food: 60,           log: "🍕 Вы съели пиццу" },
+            steak:       { cost: 300, food: 70,           log: "🥩 Вы съели стейк" },
+            restaurant:  { cost: 800, food: 100, happy: 20, log: "🍽️ Вы поужинали в ресторане" },
+            // Досуг
+            walk:        { cost: 0,   food: -10, happy: 10, log: "🚶 Вы погуляли" },
+            beer:        { cost: 40,  happy: 25, hp: -5,  log: "🍺 Вы выпили пива" },
+            wine:        { cost: 100, happy: 40, hp: -2,  log: "🍷 Вы выпили вина" },
+            attractions: { cost: 200, happy: 50,          log: "🎡 Вы покатались на аттракционах", counter: 'attractions_count' },
+            boat_rest:   { cost: 0,   happy: 100,         log: "🛥️ Вы отдохнули на катере", requireBoat: true }
+        };
+        const it = items[item];
+        if (!it) return;
 
-    let penalty = (state.food < 20 || state.happy < 20) ? 2 : 1;
-    let hpLoss = 0, happyLoss = 0, pay = 0;
+        if (it.requireBoat && !state.trans.boat) { addLog("❌ Для этого нужен катер!", 'life'); return; }
+        if (state.rub < it.cost) { addLog("❌ Недостаточно средств.", 'life'); return; }
 
-    if (job === 'loader') { 
-        if (!state.trans.sneakers) hpLoss += 15;
-        pay = 100; hpLoss += 15; happyLoss = 3;
-    }
-    if (job === 'waiter') {
-        if(!state.edu.school || !state.trans.rollers) { addLog("❌ Нужна школа и ролики!", 'work'); return; }
-        pay = 180; hpLoss = 10; happyLoss = 5;
-    }
-    if (job === 'builder') {
-        if(!state.edu.school) { addLog("❌ Требуется школа!", 'work'); return; }
-        pay = 280; hpLoss = 25; happyLoss = 3;
-    }
-    if (job === 'courier') {
-        if(!state.trans.scooter || !state.tech.phone) { addLog("❌ Нужен самокат и телефон!", 'work'); return; }
-        pay = 450; hpLoss = 10; happyLoss = 6;
-    }
-    if (job === 'taxi') {
-        if(!state.edu.license || !state.trans.car || !state.tech.phone) { addLog("❌ Нужны права, машина и телефон!", 'work'); return; }
-        pay = 800; hpLoss = 10; happyLoss = 10;
-    }
-    if (job === 'mchs') {
-        if(!state.edu.military || !state.edu.bachelor) { addLog("❌ Нужен военный билет и бакалавр!", 'work'); return; }
-        pay = 1000; hpLoss = 20; happyLoss = 10;
-    }
-    if (job === 'programmer') {
-        if(!state.edu.bachelor || !state.tech.computer) { addLog("❌ Нужен бакалавр и компьютер!", 'work'); return; }
-        pay = 2000; hpLoss = 5; happyLoss = 12;
-    }
-    if (job === 'pilot') {
-        if(!state.edu.pilot_license || !state.trans.plane) { addLog("❌ Нужна лётная лицензия и самолёт!", 'work'); return; }
-        pay = 5000; hpLoss = 5; happyLoss = 6;
-    }
-    if (job === 'ceo') {
-        if(!state.edu.science || !state.hasTeam || state.home.type !== 'office') { addLog("❌ Нужна степень, команда и офис!", 'work'); return; }
-        pay = 15000; hpLoss = 10; happyLoss = 12;
-    }
+        // Для еды/досуга с отрицательным эффектом на еду (прогулка) — предупреждение
+        let warnLosses = {};
+        if (it.food && it.food < 0) warnLosses.food = -it.food;
+        if (it.hp && it.hp < 0) warnLosses.hp = -it.hp;
+        if (it.happy && it.happy < 0) warnLosses.happy = -it.happy;
 
-    // Голод работы с учётом транспорта
-    let baseFood = JOB_FOOD[job] !== undefined ? JOB_FOOD[job] : 20;
-    let foodLoss = Math.round(baseFood * (1 - getFoodReduction() / 100));
-    let finalHappyLoss = happyLoss * penalty;
-    let finalHpLoss = hpLoss * penalty;
+        const apply = () => {
+            state.rub -= it.cost;
+            state.counters.total_spent += it.cost;
 
-    checkAndWarn({ hp: finalHpLoss, happy: finalHappyLoss, food: foodLoss }, () => {
-        if (penalty > 1) addLog(`⚠️ Работа на износ! Урон x2.`, 'work');
-        if (!state.trans.sneakers && job === 'loader') addLog("⚠️ Без кроссовок урон x2!", 'work');
-        
-        if (job === 'waiter' && Math.random() < 0.05) { addLog("🤕 Вы упали с роликов! -20 ❤️", 'work'); finalHpLoss += 20; }
-        if (job === 'builder' && Math.random() < 0.05) { addLog("🧱 На вас упал кирпич! -30 ❤️", 'work'); finalHpLoss += 30; }
-        if (job === 'taxi' && Math.random() < 0.05) { addLog("🚓 Вас оштрафовали! -200 ₽", 'work'); state.rub -= 200; }
-        if (job === 'mchs' && Math.random() < 0.05) { addLog("🔥 Вы получили травму при спасении! -40 ❤️", 'work'); finalHpLoss += 40; }
-        if (job === 'programmer' && Math.random() < 0.05) { addLog("💻 Вы выгорели от багов! -30 😊", 'work'); finalHappyLoss += 30; }
+            if (it.food) state.food += it.food;
+            if (it.happy) state.happy += it.happy;
+            if (it.hp) state.hp += it.hp;
+            if (it.counter) state.counters[it.counter] = (state.counters[it.counter] || 0) + 1;
 
-        state.rub += pay;
-        state.counters.total_earned_work += pay;
-        state.counters.total_work_shifts++;
-        state.hp -= finalHpLoss;
-        state.happy -= finalHappyLoss;
-        if (job === 'loader') state.counters.loader_count++;
-        if (job === 'courier') state.counters.courier_count++;
-        
-        if (state.hp < 0) state.hp = 0;
-        if (state.happy < 0) state.happy = 0;
+            if (state.food > 100) state.food = 100;
+            if (state.happy > 100) state.happy = 100;
+            if (state.hp > 100) state.hp = 100;
+            if (state.food < 0) state.food = 0;
+            if (state.happy < 0) state.happy = 0;
+            if (state.hp < 0) state.hp = 0;
 
-        let foodLabel = getFoodReduction() > 0 ? ` (🍕 -${getFoodReduction()}% от транспорта)` : '';
-        addLog(`💼 Отработано: +${pay} ₽, -${finalHpLoss} ❤️, -${finalHappyLoss} 😊, -${foodLoss} 🍕${foodLabel}`, 'work');
-        
-        if (state.hp <= 0) { gameOver("Вы умерли на работе."); return; }
+            let costLabel = it.cost ? ` (-${it.cost}₽)` : '';
+            addLog(`${it.log}${costLabel}`, 'life');
 
-        // skipDay списывает ровно foodLoss и 0 счастья (счастье уже списали выше)
-        skipDay(foodLoss, 0);
-    });
-}
+            if (state.hp <= 0) { gameOver("Вы умерли."); return; }
+            updateUI(); saveGame();
+        };
+
+        if (Object.keys(warnLosses).length > 0) {
+            checkAndWarn(warnLosses, apply);
+        } else {
+            apply();
+        }
+    }
 
     function heal(item) {
         if (item === 'trash_pills') {
@@ -1043,7 +1034,7 @@
         if (state.usd < bet) { addLog("❌ Недостаточно долларов.", 'main'); return; }
         
         state.usd -= bet;
-        let num = Math.floor(Math.random() * 37); // 0..36
+        let num = Math.floor(Math.random() * 37);
         let resultColor = (num === 0) ? 'green' : (num <= 18 ? 'red' : 'black');
         let colorEmoji = { red: '🔴', black: '⚫', green: '🟢' }[resultColor];
         

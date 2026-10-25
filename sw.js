@@ -1,4 +1,4 @@
-const CACHE_NAME = 'bomjara-cache-v5'; // МЕНЯЙ ПРИ КАЖДОМ ОБНОВЛЕНИИ: v4 → v5 → v6...
+const CACHE_NAME = 'bomjara-cache-v6';
 const ASSETS = [
     './',
     './index.html',
@@ -31,11 +31,13 @@ self.addEventListener('activate', (e) => {
 
 // NETWORK-FIRST: всегда сначала сеть, кэш — только офлайн
 self.addEventListener('fetch', (e) => {
+    if (e.request.method !== 'GET') return;
+    if (!e.request.url.startsWith(self.location.origin)) return;
     e.respondWith(
         fetch(e.request)
             .then((response) => {
                 const clone = response.clone();
-                caches.open(CACHE_NAME).then((cache) => cache.put(e.request, clone));
+                caches.open(CACHE_NAME).then((cache) => cache.put(e.request, clone)).catch(() => {});
                 return response;
             })
             .catch(() => caches.match(e.request))
