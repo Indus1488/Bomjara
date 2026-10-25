@@ -714,15 +714,20 @@
 
     function buyItem(item) {
         if (item === 'trash_food') { 
-            state.food += 20; 
-            state.hp -= 10; 
-            let bottlesFound = 0;
-            if (Math.random() < 0.5) {  // Увеличен шанс найти бутылки с 30% до 50%
-                bottlesFound = Math.floor(Math.random()*3)+1;
-                state.bottles += bottlesFound;
-            }
-            addLog(`🗑️ Поел с помойки (+20🍕, -10❤️). ${bottlesFound > 0 ? `Бонус: найдено ${bottlesFound} бутылок!` : ''}`, 'life'); 
-        }
+    state.food += 20; 
+    state.hp -= 10; 
+    let bottlesFound = 0;
+    let roll = Math.random();
+    if (roll < 0.33) {
+        bottlesFound = 0;
+    } else if (roll < 0.66) {
+        bottlesFound = 1;
+    } else {
+        bottlesFound = 2;
+    }
+    state.bottles += bottlesFound;
+    addLog(`🗑️ Поел с помойки (+20🍕, -10❤️). ${bottlesFound > 0 ? `Бонус: найдено ${bottlesFound} бутылок!` : ''}`, 'life'); 
+}
         else if (item === 'shawarma' && state.rub >= 70) { state.rub -= 70; state.counters.total_spent += 70; state.food += 40; state.hp -= 5; addLog("🌯 Съел шаурму (+40🍕, -5❤️).", 'life'); }
         else if (item === 'pizza' && state.rub >= 150) { state.rub -= 150; state.counters.total_spent += 150; state.food += 70; addLog("🍕 Съел пиццу.", 'life'); }
         else if (item === 'steak' && state.rub >= 300) { state.rub -= 300; state.counters.total_spent += 300; state.food += 100; addLog("🥩 Съел стейк.", 'life'); }
