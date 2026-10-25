@@ -65,6 +65,22 @@
         .tab-btn { background: none; border: none; font-size: 22px; cursor: pointer; padding: 4px 2px; opacity: 0.4; transition: 0.2s; flex: 1; text-align: center; }
         .tab-btn.active { opacity: 1; transform: scale(1.1); }
         #game-ui { display: none; height: 100%; flex-direction: column; }
+
+        /* Модальное окно предупреждения */
+        #warn-overlay { position: fixed; top:0; left:0; right:0; bottom:0; background: rgba(0,0,0,0.6); display: none; justify-content: center; align-items: center; z-index: 9999; padding: 20px; }
+        #warn-overlay.show { display: flex; }
+        #warn-box { background: #fff; border-radius: 12px; padding: 20px; max-width: 400px; width: 100%; box-shadow: 0 10px 40px rgba(0,0,0,0.4); text-align: center; animation: pop 0.2s ease; }
+        @keyframes pop { from { transform: scale(0.9); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+        #warn-box h3 { color: #e74c3c; margin-bottom: 12px; font-size: 18px; }
+        #warn-box p { color: #333; font-size: 14px; line-height: 1.4; margin-bottom: 8px; }
+        #warn-box .warn-list { background: #fdf2f0; border: 1px solid #f5c6c0; border-radius: 8px; padding: 10px; margin: 10px 0; font-size: 13px; text-align: left; }
+        #warn-box .warn-list div { padding: 2px 0; }
+        .warn-btns { display: flex; gap: 10px; margin-top: 15px; }
+        .warn-btns button { flex: 1; padding: 12px; border: none; border-radius: 8px; font-size: 14px; font-weight: bold; cursor: pointer; transition: 0.15s; }
+        .warn-cancel { background: #ecf0f1; color: #333; }
+        .warn-cancel:active { background: #d5dbdb; }
+        .warn-confirm { background: #e74c3c; color: white; }
+        .warn-confirm:active { background: #c0392b; }
     </style>
 </head>
 <body>
@@ -230,58 +246,83 @@
         </nav>
     </div>
 </div>
-<script>
-// === АВТО-ОБНОВЛЕНИЕ ===
-if ('serviceWorker' in navigator) {
-    let refreshing = false;
 
-    // Когда новый SW взял контроль — перезагружаем страницу один раз
-    navigator.serviceWorker.addEventListener('controllerchange', () => {
-        if (refreshing) return;
-        refreshing = true;
-        location.reload();
-    });
+<!-- Модальное окно предупреждения -->
+<div id="warn-overlay">
+    <div id="warn-box">
+        <h3>⚠️ Внимание!</h3>
+        <p id="warn-text">Вы собираетесь потратить ресурсы, которых осталось мало.</p>
+        <div class="warn-list" id="warn-list"></div>
+        <div class="warn-btns">
+            <button class="warn-cancel" onclick="closeWarn()">Отмена</button>
+            <button class="warn-confirm" onclick="confirmWarn()">Продолжить</button>
+        </div>
+    </div>
+</div>
 
-    window.addEventListener('load', () => {
-        navigator.serviceWorker.register('./sw.js').then((reg) => {
-            // Проверяем обновление сразу при загрузке
-            reg.update();
-
-            // И потом каждые 60 секунд (пока вкладка открыта)
-            setInterval(() => reg.update(), 60 * 1000);
-
-            // И когда вкладка снова становится активной
-            document.addEventListener('visibilitychange', () => {
-                if (document.visibilityState === 'visible') reg.update();
-            });
-        }).catch(err => console.log('SW register error:', err));
-    });
-}
-
-// === ПРОВЕРКА ОБНОВЛЕНИЙ СТРАНИЦЫ КАЖДЫЕ 5 МИНУТ ===
-// Если index.html на GitHub изменился — покажем баннер и предложим перезагрузить
-let currentVersion = document.documentElement.innerHTML.length; // грубый хэш
-setInterval(async () => {
-    try {
-        const res = await fetch('./index.html?t=' + Date.now(), { cache: 'no-store' });
-        const text = await res.text();
-        if (text.length !== currentVersion) {
-            // содержимое изменилось — показываем баннер
-            if (!document.getElementById('update-banner')) {
-                const banner = document.createElement('div');
-                banner.id = 'update-banner';
-                banner.style.cssText = 'position:fixed;top:0;left:0;right:0;background:#27ae60;color:#fff;padding:10px;text-align:center;z-index:9999;font-weight:bold;cursor:pointer;';
-                banner.innerText = '🔄 Доступно обновление! Нажмите, чтобы перезагрузить';
-                banner.onclick = () => location.reload();
-                document.body.appendChild(banner);
-            }
-        }
-    } catch (e) {}
-}, 5 * 60 * 1000);
-</script>
 <script>
     let state = {};
     const SAVE_KEY = 'bomzhara_save_final_v4';
+
+    // === СИСТЕМА ПРЕДУПРЕЖДЕНИЯ ===
+    // Порог: если после действия ресурс станет ниже этого значения — предупреждаем
+    const WARN_THRESHOLD = 15;
+    let warnCallback = null;
+
+    function checkAndWarn(losses, onConfirm) {
+        // losses = { hp: 10, food: 5, happy: 20 } — сколько ресурс потеряет
+        let warnings = [];
+        if (losses.hp && state.hp - losses.hp < WARN_THRESHOLD) {
+            warnings.push(`❤️ Здоровье: ${Math.floor(state.hp)} → ${Math.max(0, Math.floor(state.hp - losses.hp))}`);
+        }
+        if (losses.food && state.food - losses.food < WARN_THRESHOLD) {
+            warnings.push(`🍕 Еда: ${Math.floor(state.food)} → ${Math.max(0, Math.floor(state.food - losses.food))}`);
+        }
+        if (losses.happy && state.happy - losses.happy < WARN_THRESHOLD) {
+            warnings.push(`😊 Счастье: ${Math.floor(state.happy)} → ${Math.max(0, Math.floor(state.happy - losses.happy))}`);
+        }
+
+        if (warnings.length === 0) {
+            onConfirm();
+            return;
+        }
+
+        warnCallback = onConfirm;
+        const list = document.getElementById('warn-list');
+        list.innerHTML = warnings.map(w => `<div>• ${w}</div>`).join('');
+        document.getElementById('warn-overlay').classList.add('show');
+    }
+
+    function closeWarn() {
+        document.getElementById('warn-overlay').classList.remove('show');
+        warnCallback = null;
+    }
+
+    function confirmWarn() {
+        document.getElementById('warn-overlay').classList.remove('show');
+        if (warnCallback) { const cb = warnCallback; warnCallback = null; cb(); }
+    }
+
+    // === РАСЧЁТ СНИЖЕНИЯ ГОЛОДА ОТ ТРАНСПОРТА ===
+    // Чем лучше транспорт — тем меньше расход еды на работе
+    function getFoodReduction() {
+        let reduction = 0; // в процентах
+        if (state.trans.plane) reduction = 60;
+        else if (state.trans.helicopter) reduction = 50;
+        else if (state.trans.boat) reduction = 45;
+        else if (state.trans.car) reduction = 40;
+        else if (state.trans.scooter_bought) reduction = 30;
+        else if (state.trans.scooter) reduction = 25;
+        else if (state.trans.rollers) reduction = 15;
+        else if (state.trans.sneakers) reduction = 10;
+        return reduction;
+    }
+
+    function getFoodReductionLabel() {
+        let r = getFoodReduction();
+        if (r === 0) return '';
+        return ` (🍕 -${r}% от транспорта)`;
+    }
 
     window.onload = function() { checkSave(); };
 
@@ -601,29 +642,24 @@ setInterval(async () => {
         if (state.food < 0) state.food = 0;
         if (state.happy < 0) state.happy = 0;
 
-        // Налоги и проценты в банке
         state.bank = Math.floor(state.bank * 1.01);
         
-        // Аренда жилья
         if (state.home.rent > 0) {
             if (state.rub >= state.home.rent) { state.rub -= state.home.rent; addLog(`🏠 Оплачена аренда жилья (-${state.home.rent}₽).`, 'main'); state.counters.total_spent += state.home.rent; }
             else { state.home = { type: 'street', rent: 0 }; state.counters.home_changes++; addLog("❌ Вас выселили за неуплату! Вернулись на улицу.", 'main'); }
         }
 
-        // Аренда самоката
         if (state.trans.scooter && !state.trans.scooter_bought) {
             state.rub -= 50; state.counters.total_spent += 50;
             if (state.rub < 0) { state.trans.scooter = false; state.rub = 0; addLog("❌ Аренда самоката не оплачена.", 'main'); }
             else addLog("🛴 Списано 50₽ за самокат.", 'main');
         }
 
-        // IT команда
         if (state.hasTeam) {
             if (state.rub >= 3000) { state.rub -= 3000; state.counters.total_spent += 3000; addLog("👥 Оплачена IT-команда (-3000₽).", 'main'); }
             else { state.hasTeam = false; addLog("❌ IT-команда разбежалась (нет денег).", 'main'); }
         }
 
-        // Подписки
         if (state.subs.doctor) {
             if (state.rub >= 2000) { state.rub -= 2000; state.counters.total_spent += 2000; state.hp = 100; addLog("🏥 Врач вылечил до максимума.", 'main'); }
             else { state.subs.doctor = false; addLog("❌ Врач уволен (нет денег).", 'main'); }
@@ -637,14 +673,12 @@ setInterval(async () => {
             else { state.subs.friend = false; addLog("❌ Друг ушел (нет денег).", 'main'); }
         }
 
-        // Штрафы за нулевые шкалы
         if (state.food <= 0) { state.food = 0; state.hp -= 10; addLog("⚠️ Сильный голод! Организм истощен. -10 ❤️", 'main'); }
         if (state.happy <= 0) { state.happy = 0; state.hp -= 10; addLog("⚠️ Глубокая депрессия! Вы теряете волю к жизни. -10 ❤️", 'main'); }
         
         if (state.hp < 0) state.hp = 0;
         if (state.hp <= 0) { gameOver("Вы умерли от истощения и болезней."); return; }
 
-        // Возраст
         if (state.days % 30 === 0) {
             state.age++;
             addLog(`🎂 Вам ${state.age} лет!`, 'main');
@@ -658,18 +692,22 @@ setInterval(async () => {
 
     function actionSearchTrash() {
         if (state.isDead) return;
-        let r = Math.random();
-        if (r < 0.4) { let b = Math.floor(Math.random()*3)+1; state.bottles += b; addLog(`♻️ Получено ${b} бутылок.`, 'work'); }
-        else if (r < 0.7) { let m = Math.floor(Math.random()*20)+5; state.rub += m; state.counters.total_earned_work += m; addLog(`💰 Получено ${m} рублей.`, 'work'); }
-        else { state.hp -= 10; addLog(`🩸 Вы поранились (-10 ❤️).`, 'work'); }
-        skipDay();
+        checkAndWarn({ hp: 10 }, () => {
+            let r = Math.random();
+            if (r < 0.4) { let b = Math.floor(Math.random()*3)+1; state.bottles += b; addLog(`♻️ Получено ${b} бутылок.`, 'work'); }
+            else if (r < 0.7) { let m = Math.floor(Math.random()*20)+5; state.rub += m; state.counters.total_earned_work += m; addLog(`💰 Получено ${m} рублей.`, 'work'); }
+            else { state.hp -= 10; addLog(`🩸 Вы поранились (-10 ❤️).`, 'work'); }
+            skipDay();
+        });
     }
 
     function actionBeg() {
-        let m = Math.floor(Math.random() * 11) + 5;
-        state.rub += m; state.happy -= 5; state.counters.total_earned_work += m;
-        addLog(`🥺 Собрано ${m} ₽.`, 'work');
-        skipDay();
+        checkAndWarn({ happy: 5 }, () => {
+            let m = Math.floor(Math.random() * 11) + 5;
+            state.rub += m; state.happy -= 5; state.counters.total_earned_work += m;
+            addLog(`🥺 Собрано ${m} ₽.`, 'work');
+            skipDay();
+        });
     }
 
     function actionSellBottles() {
@@ -701,39 +739,32 @@ setInterval(async () => {
         let hpLoss = 0, happyLoss = 0, pay = 0;
 
         if (job === 'loader') { 
-            if (!state.trans.sneakers) { hpLoss += 15; addLog("⚠️ Без кроссовок урон x2!", 'work'); }
+            if (!state.trans.sneakers) { hpLoss += 15; }
             pay = 100; hpLoss += 15; happyLoss = 5;
-            state.counters.loader_count++;
         }
         if (job === 'waiter') {
             if(!state.edu.school || !state.trans.rollers) { addLog("❌ Нужна школа и ролики!", 'work'); return; }
             pay = 180; hpLoss = 10; happyLoss = 10;
-            if (Math.random() < 0.05) { addLog("🤕 Вы упали с роликов! -20 ❤️", 'work'); hpLoss += 20; }
         }
         if (job === 'builder') {
             if(!state.edu.school) { addLog("❌ Требуется школа!", 'work'); return; }
             pay = 280; hpLoss = 25; happyLoss = 5;
-            if (Math.random() < 0.05) { addLog("🧱 На вас упал кирпич! -30 ❤️", 'work'); hpLoss += 30; }
         }
         if (job === 'courier') {
             if(!state.trans.scooter || !state.tech.phone) { addLog("❌ Нужен самокат и телефон!", 'work'); return; }
             pay = 450; hpLoss = 10; happyLoss = 10;
-            state.counters.courier_count++;
         }
         if (job === 'taxi') {
             if(!state.edu.license || !state.trans.car || !state.tech.phone) { addLog("❌ Нужны права, машина и телефон!", 'work'); return; }
             pay = 800; hpLoss = 10; happyLoss = 15;
-            if (Math.random() < 0.05) { addLog("🚓 Вас оштрафовали! -200 ₽", 'work'); state.rub -= 200; }
         }
         if (job === 'mchs') {
             if(!state.edu.military || !state.edu.bachelor) { addLog("❌ Нужен военный билет и бакалавр!", 'work'); return; }
             pay = 1000; hpLoss = 20; happyLoss = 15;
-            if (Math.random() < 0.05) { addLog("🔥 Вы получили травму при спасении! -40 ❤️", 'work'); hpLoss += 40; }
         }
         if (job === 'programmer') {
             if(!state.edu.bachelor || !state.tech.computer) { addLog("❌ Нужен бакалавр и компьютер!", 'work'); return; }
             pay = 2000; hpLoss = 5; happyLoss = 20;
-            if (Math.random() < 0.05) { addLog("💻 Вы выгорели от багов! -30 😊", 'work'); happyLoss += 30; }
         }
         if (job === 'pilot') {
             if(!state.edu.pilot_license || !state.trans.plane) { addLog("❌ Нужна лётная лицензия и самолёт!", 'work'); return; }
@@ -744,46 +775,93 @@ setInterval(async () => {
             pay = 15000; hpLoss = 10; happyLoss = 20;
         }
 
-        if (penalty > 1) addLog(`⚠️ Работа на износ! Урон x2.`, 'work');
+        // Предупреждение перед работой
+        let foodLoss = Math.round(20 * (1 - getFoodReduction() / 100));
+        checkAndWarn({ hp: hpLoss * penalty, happy: happyLoss * penalty, food: foodLoss }, () => {
+            if (penalty > 1) addLog(`⚠️ Работа на износ! Урон x2.`, 'work');
+            if (!state.trans.sneakers && job === 'loader') addLog("⚠️ Без кроссовок урон x2!", 'work');
+            
+            // Случайные события
+            if (job === 'waiter' && Math.random() < 0.05) { addLog("🤕 Вы упали с роликов! -20 ❤️", 'work'); hpLoss += 20; }
+            if (job === 'builder' && Math.random() < 0.05) { addLog("🧱 На вас упал кирпич! -30 ❤️", 'work'); hpLoss += 30; }
+            if (job === 'taxi' && Math.random() < 0.05) { addLog("🚓 Вас оштрафовали! -200 ₽", 'work'); state.rub -= 200; }
+            if (job === 'mchs' && Math.random() < 0.05) { addLog("🔥 Вы получили травму при спасении! -40 ❤️", 'work'); hpLoss += 40; }
+            if (job === 'programmer' && Math.random() < 0.05) { addLog("💻 Вы выгорели от багов! -30 😊", 'work'); happyLoss += 30; }
 
-        state.rub += pay;
-        state.counters.total_earned_work += pay;
-        state.counters.total_work_shifts++;
-        state.hp -= (hpLoss * penalty);
-        state.happy -= (happyLoss * penalty);
-        
-        if (state.hp < 0) state.hp = 0;
-        if (state.happy < 0) state.happy = 0;
+            state.rub += pay;
+            state.counters.total_earned_work += pay;
+            state.counters.total_work_shifts++;
+            state.hp -= (hpLoss * penalty);
+            state.happy -= (happyLoss * penalty);
+            if (job === 'loader') state.counters.loader_count++;
+            if (job === 'courier') state.counters.courier_count++;
+            
+            if (state.hp < 0) state.hp = 0;
+            if (state.happy < 0) state.happy = 0;
 
-        addLog(`💼 Отработано: +${pay} ₽, -${hpLoss * penalty} ❤️, -${happyLoss * penalty} 😊`, 'work');
-        
-        if (state.hp <= 0) { gameOver("Вы умерли на работе."); return; }
-        skipDay();
+            let foodLabel = getFoodReduction() > 0 ? ` (🍕 -${getFoodReduction()}% от транспорта)` : '';
+            addLog(`💼 Отработано: +${pay} ₽, -${hpLoss * penalty} ❤️, -${happyLoss * penalty} 😊${foodLabel}`, 'work');
+            
+            if (state.hp <= 0) { gameOver("Вы умерли на работе."); return; }
+            skipDay();
+        });
     }
 
     function buyItem(item) {
         if (item === 'trash_food') { 
-    state.food += 20; 
-    state.hp -= 10; 
-    let bottlesFound = 0;
-    let roll = Math.random();
-    if (roll < 0.33) {
-        bottlesFound = 0;
-    } else if (roll < 0.66) {
-        bottlesFound = 1;
-    } else {
-        bottlesFound = 2;
-    }
-    state.bottles += bottlesFound;
-    addLog(`🗑️ Поел с помойки (+20🍕, -10❤️). ${bottlesFound > 0 ? `Бонус: найдено ${bottlesFound} бутылок!` : ''}`, 'life'); 
-}
-        else if (item === 'shawarma' && state.rub >= 70) { state.rub -= 70; state.counters.total_spent += 70; state.food += 40; state.hp -= 5; addLog("🌯 Съел шаурму (+40🍕, -5❤️).", 'life'); }
-        else if (item === 'pizza' && state.rub >= 150) { state.rub -= 150; state.counters.total_spent += 150; state.food += 70; addLog("🍕 Съел пиццу.", 'life'); }
+            checkAndWarn({ hp: 10 }, () => {
+                state.food += 20; 
+                state.hp -= 10; 
+                let bottlesFound = 0;
+                let roll = Math.random();
+                if (roll < 0.33) bottlesFound = 0;
+                else if (roll < 0.66) bottlesFound = 1;
+                else bottlesFound = 2;
+                state.bottles += bottlesFound;
+                addLog(`🗑️ Поел с помойки (+20🍕, -10❤️). ${bottlesFound > 0 ? `Бонус: найдено ${bottlesFound} бутылок!` : ''}`, 'life');
+                if(state.food>100) state.food=100; 
+                if(state.hp<0) state.hp=0;
+                updateUI(); saveGame();
+            });
+            return;
+        }
+        if (item === 'shawarma' && state.rub >= 70) { 
+            checkAndWarn({ hp: 5 }, () => {
+                state.rub -= 70; state.counters.total_spent += 70; state.food += 40; state.hp -= 5; addLog("🌯 Съел шаурму (+40🍕, -5❤️).", 'life');
+                if(state.food>100) state.food=100; if(state.hp<0) state.hp=0;
+                updateUI(); saveGame();
+            });
+            return;
+        }
+        if (item === 'pizza' && state.rub >= 150) { state.rub -= 150; state.counters.total_spent += 150; state.food += 70; addLog("🍕 Съел пиццу.", 'life'); }
         else if (item === 'steak' && state.rub >= 300) { state.rub -= 300; state.counters.total_spent += 300; state.food += 100; addLog("🥩 Съел стейк.", 'life'); }
         else if (item === 'restaurant' && state.rub >= 800) { state.rub -= 800; state.counters.total_spent += 800; state.food = 100; state.happy += 20; addLog("🍽️ Поужинал в ресторане.", 'life'); }
-        else if (item === 'walk') { if(state.food >= 10) { state.food -= 10; state.happy += 10; addLog("🚶 Погулял.", 'life'); } else { addLog("❌ Слишком голоден для прогулки.", 'life'); return; } }
-        else if (item === 'beer' && state.rub >= 40) { state.rub -= 40; state.counters.total_spent += 40; state.happy += 25; state.hp -= 5; addLog("🍺 Выпил пива.", 'life'); }
-        else if (item === 'wine' && state.rub >= 100) { state.rub -= 100; state.counters.total_spent += 100; state.happy += 40; state.hp -= 2; addLog("🍷 Выпил вина.", 'life'); }
+        else if (item === 'walk') { 
+            if(state.food >= 10) { 
+                checkAndWarn({ food: 10 }, () => {
+                    state.food -= 10; state.happy += 10; addLog("🚶 Погулял.", 'life');
+                    if(state.happy>100) state.happy=100; if(state.food<0) state.food=0;
+                    updateUI(); saveGame();
+                });
+                return;
+            } else { addLog("❌ Слишком голоден для прогулки.", 'life'); return; }
+        }
+        else if (item === 'beer' && state.rub >= 40) { 
+            checkAndWarn({ hp: 5 }, () => {
+                state.rub -= 40; state.counters.total_spent += 40; state.happy += 25; state.hp -= 5; addLog("🍺 Выпил пива.", 'life');
+                if(state.happy>100) state.happy=100; if(state.hp<0) state.hp=0;
+                updateUI(); saveGame();
+            });
+            return;
+        }
+        else if (item === 'wine' && state.rub >= 100) { 
+            checkAndWarn({ hp: 2 }, () => {
+                state.rub -= 100; state.counters.total_spent += 100; state.happy += 40; state.hp -= 2; addLog("🍷 Выпил вина.", 'life');
+                if(state.happy>100) state.happy=100; if(state.hp<0) state.hp=0;
+                updateUI(); saveGame();
+            });
+            return;
+        }
         else if (item === 'attractions' && state.rub >= 200) { state.rub -= 200; state.counters.total_spent += 200; state.happy += 50; state.counters.attractions_count++; addLog("🎡 Покатался на аттракционах.", 'life'); }
         else if (item === 'boat_rest') { state.happy = 100; state.food -= 30; addLog("🛥️ Отдохнул на катере! +100 😊, -30 🍕", 'life'); }
         else { addLog("❌ Недостаточно средств или условий.", 'life'); return; }
@@ -796,22 +874,34 @@ setInterval(async () => {
 
     function heal(item) {
         if (item === 'trash_pills') {
-            let bottlesFound = 0;
-            if (Math.random() < 0.5) {  // Увеличен шанс найти бутылки с 40% до 50%
-                bottlesFound = Math.floor(Math.random()*2)+1;
-                state.bottles += bottlesFound;
-            }
-            if (Math.random() > 0.3) {  // Шанс успеха 70% (было 50%)
-                state.hp += 15; state.happy -= 10; 
-                addLog(`💊 Таблетки помогли (+15 ❤️, -10 😊). ${bottlesFound > 0 ? `Бонус: найдено ${bottlesFound} бутылок!` : ''}`, 'life'); 
-            }
-            else { 
-                state.hp -= 10; 
-                addLog(`🤢 Просроченные таблетки (-10 ❤️). ${bottlesFound > 0 ? `Бонус: найдено ${bottlesFound} бутылок!` : ''}`, 'life'); 
-            }
+            checkAndWarn({ happy: 10 }, () => {
+                let bottlesFound = 0;
+                if (Math.random() < 0.5) {
+                    bottlesFound = Math.floor(Math.random()*2)+1;
+                    state.bottles += bottlesFound;
+                }
+                if (Math.random() > 0.3) { 
+                    state.hp += 15; state.happy -= 10; 
+                    addLog(`💊 Таблетки помогли (+15 ❤️, -10 😊). ${bottlesFound > 0 ? `Бонус: найдено ${bottlesFound} бутылок!` : ''}`, 'life'); 
+                }
+                else { 
+                    state.hp -= 10; 
+                    addLog(`🤢 Просроченные таблетки (-10 ❤️). ${bottlesFound > 0 ? `Бонус: найдено ${bottlesFound} бутылок!` : ''}`, 'life'); 
+                }
+                if(state.hp>100) state.hp=100; if(state.hp<0) state.hp=0;
+                updateUI(); saveGame();
+            });
+            return;
         }
         else if (item === 'grandma_pills' && state.rub >= 150) { state.rub -= 150; state.counters.total_spent += 150; state.hp += 25; addLog("👵 Бабушкины лекарства (+25 ❤️).", 'life'); }
-        else if (item === 'antibiotics' && state.rub >= 300) { state.rub -= 300; state.counters.total_spent += 300; state.hp += 60; state.food -= 20; addLog("💉 Антибиотики (+60 ❤️, -20 🍕).", 'life'); }
+        else if (item === 'antibiotics' && state.rub >= 300) { 
+            checkAndWarn({ food: 20 }, () => {
+                state.rub -= 300; state.counters.total_spent += 300; state.hp += 60; state.food -= 20; addLog("💉 Антибиотики (+60 ❤️, -20 🍕).", 'life');
+                if(state.hp>100) state.hp=100; if(state.hp<0) state.hp=0; if(state.food<0) state.food=0;
+                updateUI(); saveGame();
+            });
+            return;
+        }
         else { addLog("❌ Недостаточно средств.", 'life'); return; }
         
         if(state.hp>100) state.hp=100; 
@@ -961,6 +1051,27 @@ setInterval(async () => {
             <button onclick="location.reload()" style="padding: 10px 20px; margin-top: 20px; font-size: 16px; cursor:pointer;">В главное меню</button>
         </div>`;
     }
+</script>
+
+<!-- АВТО-ОБНОВЛЕНИЕ -->
+<script>
+if ('serviceWorker' in navigator) {
+    let refreshing = false;
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+        if (refreshing) return;
+        refreshing = true;
+        location.reload();
+    });
+    window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js').then((reg) => {
+            reg.update();
+            setInterval(() => reg.update(), 60 * 1000);
+            document.addEventListener('visibilitychange', () => {
+                if (document.visibilityState === 'visible') reg.update();
+            });
+        }).catch(err => console.log('SW register error:', err));
+    });
+}
 </script>
 </body>
 </html>

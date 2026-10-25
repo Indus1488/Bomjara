@@ -5,7 +5,6 @@ const ASSETS = [
     './manifest.json'
 ];
 
-// Установка: сразу активируем новый SW, не ждём закрытия вкладок
 self.addEventListener('install', (e) => {
     self.skipWaiting();
     e.waitUntil(
@@ -15,7 +14,6 @@ self.addEventListener('install', (e) => {
     );
 });
 
-// Активация: удаляем старый кэш и берём контроль над открытыми вкладками
 self.addEventListener('activate', (e) => {
     e.waitUntil(
         Promise.all([
@@ -31,7 +29,7 @@ self.addEventListener('activate', (e) => {
     );
 });
 
-// NETWORK-FIRST: всегда сначала идём в сеть, кэш — только если сети нет
+// NETWORK-FIRST: всегда сначала сеть, кэш — только офлайн
 self.addEventListener('fetch', (e) => {
     e.respondWith(
         fetch(e.request)
