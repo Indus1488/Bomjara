@@ -328,6 +328,10 @@
     function updateUI() {
         if (state.isDead) return;
 
+        if (state.hp < 0) state.hp = 0;
+        if (state.food < 0) state.food = 0;
+        if (state.happy < 0) state.happy = 0;
+
         document.getElementById('hp-val').innerText = Math.floor(state.hp);
         document.getElementById('hp-bar').style.width = Math.max(0, state.hp) + '%';
         document.getElementById('food-val').innerText = Math.floor(state.food);
@@ -545,6 +549,9 @@
         if (state.isDead) return;
         state.days++; state.food -= 20; state.happy -= 10;
 
+        if (state.food < 0) state.food = 0;
+        if (state.happy < 0) state.happy = 0;
+
         // Налоги и проценты в банке
         state.bank = Math.floor(state.bank * 1.01);
         
@@ -585,6 +592,7 @@
         if (state.food <= 0) { state.food = 0; state.hp -= 10; addLog("⚠️ Сильный голод! Организм истощен. -10 ❤️", 'main'); }
         if (state.happy <= 0) { state.happy = 0; state.hp -= 10; addLog("⚠️ Глубокая депрессия! Вы теряете волю к жизни. -10 ❤️", 'main'); }
         
+        if (state.hp < 0) state.hp = 0;
         if (state.hp <= 0) { gameOver("Вы умерли от истощения и болезней."); return; }
 
         // Возраст
@@ -694,6 +702,9 @@
         state.counters.total_work_shifts++;
         state.hp -= (hpLoss * penalty);
         state.happy -= (happyLoss * penalty);
+        
+        if (state.hp < 0) state.hp = 0;
+        if (state.happy < 0) state.happy = 0;
 
         addLog(`💼 Отработано: +${pay} ₽, -${hpLoss * penalty} ❤️, -${happyLoss * penalty} 😊`, 'work');
         
@@ -723,7 +734,9 @@
         else if (item === 'boat_rest') { state.happy = 100; state.food -= 30; addLog("🛥️ Отдохнул на катере! +100 😊, -30 🍕", 'life'); }
         else { addLog("❌ Недостаточно средств или условий.", 'life'); return; }
         
-        if(state.food>100) state.food=100; if(state.happy>100) state.happy=100;
+        if(state.food>100) state.food=100; 
+        if(state.happy>100) state.happy=100;
+        if(state.hp<0) state.hp=0;
         updateUI(); saveGame();
     }
 
@@ -746,7 +759,10 @@
         else if (item === 'grandma_pills' && state.rub >= 150) { state.rub -= 150; state.counters.total_spent += 150; state.hp += 25; addLog("👵 Бабушкины лекарства (+25 ❤️).", 'life'); }
         else if (item === 'antibiotics' && state.rub >= 300) { state.rub -= 300; state.counters.total_spent += 300; state.hp += 60; state.food -= 20; addLog("💉 Антибиотики (+60 ❤️, -20 🍕).", 'life'); }
         else { addLog("❌ Недостаточно средств.", 'life'); return; }
-        if(state.hp>100) state.hp=100; updateUI(); saveGame();
+        
+        if(state.hp>100) state.hp=100; 
+        if(state.hp<0) state.hp=0;
+        updateUI(); saveGame();
     }
 
     function buySub(sub) {
