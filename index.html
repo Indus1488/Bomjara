@@ -605,7 +605,7 @@
         const slider = document.getElementById('currency-slider');
         const maxBuy = Math.floor(state.rub / state.usdRate);
         const maxSell = Math.floor(state.usd);
-        slider.max = Math.max(maxBuy, maxSell); // Слайдер тянется до максимума из двух
+        slider.max = Math.max(maxBuy, maxSell);
         if (parseInt(slider.value) > slider.max) slider.value = slider.max;
         updateSlider();
 
@@ -705,7 +705,6 @@
         if (state.food < 0) state.food = 0;
         if (state.happy < 0) state.happy = 0;
 
-        // Динамический курс доллара — раз в 7 дней
         if (state.days % USD_RATE_CHANGE_DAYS === 0 && state.days !== state.usdRateDay) {
             state.usdRate = randomUsdRate();
             state.usdRateDay = state.days;
@@ -747,7 +746,15 @@
         if (state.happy <= 0) { state.happy = 0; state.hp -= 10; addLog("⚠️ Глубокая депрессия! Вы теряете волю к жизни. -10 ❤️", 'main'); }
         
         if (state.hp < 0) state.hp = 0;
-        if (state.hp <= 0) { gameOver("Вы умерли от истощения и болезней."); return; }
+        if (state.hp <= 0) { 
+            if (!state.immortal) {
+                gameOver("Вы умерли от истощения и болезней."); 
+                return; 
+            } else {
+                state.hp = 100;
+                addLog("✨ Таблетка Бессмертия спасла вас от истощения!", 'main');
+            }
+        }
 
         if (state.days % 30 === 0) {
             state.age++;
@@ -873,23 +880,28 @@
             let foodLabel = getFoodReduction() > 0 ? ` (🍕 -${getFoodReduction()}% от транспорта)` : '';
             addLog(`💼 Отработано: +${pay} ₽, -${finalHpLoss} ❤️, -${finalHappyLoss} 😊, -${foodLoss} 🍕${foodLabel}`, 'work');
             
-            if (state.hp <= 0) { gameOver("Вы умерли на работе."); return; }
+            if (state.hp <= 0) { 
+                if (!state.immortal) {
+                    gameOver("Вы умерли на работе."); 
+                    return; 
+                } else {
+                    state.hp = 100;
+                    addLog("✨ Таблетка Бессмертия спасла вас от гибели на работе!", 'work');
+                }
+            }
 
             skipDay(foodLoss, 0);
         });
     }
 
-    // === ЕДА И ДОСУГ ===
     function buyItem(item) {
         if (state.isDead) return;
         const items = {
-            // Еда
             trash_food:  { cost: 0,   food: 30,  hp: -10, log: "🗑️ Вы поели с помойки" },
             shawarma:    { cost: 70,  food: 35,  hp: -5,  log: "🌯 Вы съели шаурму" },
             pizza:       { cost: 150, food: 60,           log: "🍕 Вы съели пиццу" },
             steak:       { cost: 300, food: 70,           log: "🥩 Вы съели стейк" },
             restaurant:  { cost: 800, food: 100, happy: 20, log: "🍽️ Вы поужинали в ресторане" },
-            // Досуг
             walk:        { cost: 0,   food: -10, happy: 10, log: "🚶 Вы погуляли" },
             beer:        { cost: 40,  happy: 25, hp: -5,  log: "🍺 Вы выпили пива" },
             wine:        { cost: 100, happy: 40, hp: -2,  log: "🍷 Вы выпили вина" },
@@ -926,7 +938,15 @@
             let costLabel = it.cost ? ` (-${it.cost}₽)` : '';
             addLog(`${it.log}${costLabel}`, 'life');
 
-            if (state.hp <= 0) { gameOver("Вы умерли."); return; }
+            if (state.hp <= 0) { 
+                if (!state.immortal) {
+                    gameOver("Вы умерли."); 
+                    return; 
+                } else {
+                    state.hp = 100;
+                    addLog("✨ Таблетка Бессмертия спасла вас!", 'life');
+                }
+            }
             updateUI(); saveGame();
         };
 
@@ -1049,7 +1069,6 @@
         }
     }
 
-    // === КАЗИНО-РУЛЕТКА ===
     function playCasino(color) {
         let bet = parseInt(document.getElementById('bet-amount').value);
         if (isNaN(bet) || bet <= 0) { addLog("Введите ставку.", 'main'); return; }
@@ -1073,7 +1092,6 @@
         updateUI(); saveGame();
     }
 
-    // === СЕКРЕТНАЯ КНОПКА ===
     function secretClick() {
         if (state.secretUsed) return;
         secretClicks++;
@@ -1089,7 +1107,6 @@
         }
     }
 
-    // === НАГРАДЫ ЗА ДОСТИЖЕНИЯ ===
     function grantAchievement(id) {
         if (state.ach[id]) return;
         state.ach[id] = true;
@@ -1153,8 +1170,19 @@
         });
     }
 
-       if (state.hp <= 0 && !state.immortal) { gameOver("Вы умерли на работе."); return; }
-        // Стандартная смерть
+    function gameOver(reason) {
+        // Если куплена таблетка бессмертия — игра не заканчивается
+        if (state.immortal) {
+            state.hp = 100; 
+            state.food = Math.max(state.food, 50); 
+            state.happy = Math.max(state.happy, 50);
+            addLog(`✨ Таблетка Бессмертия спасла вас! (${reason})`, 'main');
+            updateUI();
+            saveGame();
+            return; 
+        }
+
+        // Обычная смерть (если таблетки нет)
         state.isDead = true;
         localStorage.removeItem(SAVE_KEY);
         document.body.innerHTML = `<div style="text-align:center; color:white; padding: 20px; font-family:sans-serif;">
@@ -1163,7 +1191,7 @@
             <p>Вы прожили: ${state.days} дней.</p>
             <button onclick="location.reload()" style="padding: 10px 20px; margin-top: 20px; font-size: 16px; cursor:pointer;">В главное меню</button>
         </div>`;
-    
+    }
 </script>
 
 <script>
