@@ -717,7 +717,7 @@
             state.food += 20; 
             state.hp -= 10; 
             let bottlesFound = 0;
-            if (Math.random() < 0.3) {
+            if (Math.random() < 0.5) {  // Увеличен шанс найти бутылки с 30% до 50%
                 bottlesFound = Math.floor(Math.random()*3)+1;
                 state.bottles += bottlesFound;
             }
@@ -743,11 +743,11 @@
     function heal(item) {
         if (item === 'trash_pills') {
             let bottlesFound = 0;
-            if (Math.random() < 0.4) {
+            if (Math.random() < 0.5) {  // Увеличен шанс найти бутылки с 40% до 50%
                 bottlesFound = Math.floor(Math.random()*2)+1;
                 state.bottles += bottlesFound;
             }
-            if (Math.random() > 0.5) { 
+            if (Math.random() > 0.3) {  // Шанс успеха 70% (было 50%)
                 state.hp += 15; state.happy -= 10; 
                 addLog(`💊 Таблетки помогли (+15 ❤️, -10 😊). ${bottlesFound > 0 ? `Бонус: найдено ${bottlesFound} бутылок!` : ''}`, 'life'); 
             }
