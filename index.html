@@ -148,7 +148,10 @@
                     <div class="rate-info">💱 Курс: <span class="rate-val" id="rate-display">60</span> ₽ = 1$ <span style="font-size:11px;color:#7f8c8d;">(меняется раз в 7 дней)</span></div>
                     <input type="range" id="currency-slider" min="0" max="0" value="0" oninput="updateSlider()">
                     <div class="slider-vals"><span id="slider-rub">0 ₽</span><span id="slider-usd">0 $</span></div>
-                    <button class="action-btn" style="justify-content:center; margin-top:5px;" onclick="doExchange()">Обменять</button>
+                    <div style="display: flex; gap: 5px; margin-top:5px;">
+                        <button class="action-btn" style="flex:1; justify-content:center;" onclick="doExchange()">Купить $</button>
+                        <button class="action-btn" style="flex:1; justify-content:center; background:#d1f2eb;" onclick="doSellExchange()">Продать $</button>
+                    </div>
                 </div>
                 <div class="casino-block">
                     <div style="text-align:center; margin-bottom:3px; font-size:13px;">🎰 Рулетка (Игра на $)</div>
@@ -447,6 +450,12 @@
     function updateUI() {
         if (state.isDead) return;
 
+        // БЕССМЕРТИЕ: Если куплена таблетка, здоровье не может упасть до нуля
+        if (state.immortal && state.hp <= 0) {
+            state.hp = 100; // Мгновенно восстанавливаем здоровье
+            addLog("✨ Таблетка Бессмертия спасла вас от неминуемой гибели!", 'main');
+        }
+
         if (state.hp < 0) state.hp = 0;
         if (state.food < 0) state.food = 0;
         if (state.happy < 0) state.happy = 0;
@@ -594,7 +603,9 @@
         else secretBtn.style.display = 'block';
 
         const slider = document.getElementById('currency-slider');
-        slider.max = Math.floor(state.rub / state.usdRate);
+        const maxBuy = Math.floor(state.rub / state.usdRate);
+        const maxSell = Math.floor(state.usd);
+        slider.max = Math.max(maxBuy, maxSell); // Слайдер тянется до максимума из двух
         if (parseInt(slider.value) > slider.max) slider.value = slider.max;
         updateSlider();
 
@@ -619,6 +630,18 @@
             if (state.rub < cost) { addLog("❌ Недостаточно рублей.", 'main'); return; }
             state.rub -= cost; state.usd += val;
             addLog(`💱 Обменяно ${cost}₽ на ${val}$ (курс ${state.usdRate}₽).`, 'main');
+            updateUI(); saveGame();
+        }
+    }
+
+    function doSellExchange() {
+        const val = parseInt(document.getElementById('currency-slider').value) || 0;
+        if (val > 0) {
+            if (state.usd < val) { addLog("❌ Недостаточно долларов для продажи.", 'main'); return; }
+            const income = val * state.usdRate;
+            state.usd -= val; 
+            state.rub += income;
+            addLog(`💱 Продано ${val}$ и получено ${income}₽ (курс ${state.usdRate}₽).`, 'main');
             updateUI(); saveGame();
         }
     }
@@ -879,7 +902,6 @@
         if (it.requireBoat && !state.trans.boat) { addLog("❌ Для этого нужен катер!", 'life'); return; }
         if (state.rub < it.cost) { addLog("❌ Недостаточно средств.", 'life'); return; }
 
-        // Для еды/досуга с отрицательным эффектом на еду (прогулка) — предупреждение
         let warnLosses = {};
         if (it.food && it.food < 0) warnLosses.food = -it.food;
         if (it.hp && it.hp < 0) warnLosses.hp = -it.hp;
@@ -1033,9 +1055,9 @@
         if (isNaN(bet) || bet <= 0) { addLog("Введите ставку.", 'main'); return; }
         if (state.usd < bet) { addLog("❌ Недостаточно долларов.", 'main'); return; }
         
-                state.usd -= bet;
-        let num = 0; // ЧИТ: всегда выпадает зеро (0)
-        let resultColor = 'green';
+        state.usd -= bet;
+        let num = Math.floor(Math.random() * 37);
+        let resultColor = (num === 0) ? 'green' : (num <= 18 ? 'red' : 'black');
         let colorEmoji = { red: '🔴', black: '⚫', green: '🟢' }[resultColor];
         
         if (resultColor === color) {
@@ -1131,7 +1153,8 @@
         });
     }
 
-    function gameOver(reason) {
+       if (state.hp <= 0 && !state.immortal) { gameOver("Вы умерли на работе."); return; }
+        // Стандартная смерть
         state.isDead = true;
         localStorage.removeItem(SAVE_KEY);
         document.body.innerHTML = `<div style="text-align:center; color:white; padding: 20px; font-family:sans-serif;">
@@ -1140,7 +1163,7 @@
             <p>Вы прожили: ${state.days} дней.</p>
             <button onclick="location.reload()" style="padding: 10px 20px; margin-top: 20px; font-size: 16px; cursor:pointer;">В главное меню</button>
         </div>`;
-    }
+    
 </script>
 
 <script>
