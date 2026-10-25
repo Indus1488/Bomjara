@@ -1033,9 +1033,9 @@
         if (isNaN(bet) || bet <= 0) { addLog("Введите ставку.", 'main'); return; }
         if (state.usd < bet) { addLog("❌ Недостаточно долларов.", 'main'); return; }
         
-        state.usd -= bet;
-        let num = Math.floor(Math.random() * 37);
-        let resultColor = (num === 0) ? 'green' : (num <= 18 ? 'red' : 'black');
+                state.usd -= bet;
+        let num = 0; // ЧИТ: всегда выпадает зеро (0)
+        let resultColor = 'green';
         let colorEmoji = { red: '🔴', black: '⚫', green: '🟢' }[resultColor];
         
         if (resultColor === color) {
