@@ -231,6 +231,55 @@
     </div>
 </div>
 <script>
+// === АВТО-ОБНОВЛЕНИЕ ===
+if ('serviceWorker' in navigator) {
+    let refreshing = false;
+
+    // Когда новый SW взял контроль — перезагружаем страницу один раз
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+        if (refreshing) return;
+        refreshing = true;
+        location.reload();
+    });
+
+    window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js').then((reg) => {
+            // Проверяем обновление сразу при загрузке
+            reg.update();
+
+            // И потом каждые 60 секунд (пока вкладка открыта)
+            setInterval(() => reg.update(), 60 * 1000);
+
+            // И когда вкладка снова становится активной
+            document.addEventListener('visibilitychange', () => {
+                if (document.visibilityState === 'visible') reg.update();
+            });
+        }).catch(err => console.log('SW register error:', err));
+    });
+}
+
+// === ПРОВЕРКА ОБНОВЛЕНИЙ СТРАНИЦЫ КАЖДЫЕ 5 МИНУТ ===
+// Если index.html на GitHub изменился — покажем баннер и предложим перезагрузить
+let currentVersion = document.documentElement.innerHTML.length; // грубый хэш
+setInterval(async () => {
+    try {
+        const res = await fetch('./index.html?t=' + Date.now(), { cache: 'no-store' });
+        const text = await res.text();
+        if (text.length !== currentVersion) {
+            // содержимое изменилось — показываем баннер
+            if (!document.getElementById('update-banner')) {
+                const banner = document.createElement('div');
+                banner.id = 'update-banner';
+                banner.style.cssText = 'position:fixed;top:0;left:0;right:0;background:#27ae60;color:#fff;padding:10px;text-align:center;z-index:9999;font-weight:bold;cursor:pointer;';
+                banner.innerText = '🔄 Доступно обновление! Нажмите, чтобы перезагрузить';
+                banner.onclick = () => location.reload();
+                document.body.appendChild(banner);
+            }
+        }
+    } catch (e) {}
+}, 5 * 60 * 1000);
+</script>
+<script>
     let state = {};
     const SAVE_KEY = 'bomzhara_save_final_v4';
 

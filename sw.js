@@ -1,12 +1,13 @@
-const CACHE_NAME = 'bomjara-cache-v2'; // Поменяли версию на v2
+const CACHE_NAME = 'bomjara-cache-v3'; // МЕНЯЙ ПРИ КАЖДОМ ОБНОВЛЕНИИ: v3 → v4 → v5...
 const ASSETS = [
     './',
     './index.html',
-    './manifest.json' // Если у тебя нет manifest.json, просто удали эту строчку
+    './manifest.json'
 ];
 
-// Установка (сохраняем файлы в кэш)
+// Установка: сразу активируем новый SW, не ждём закрытия вкладок
 self.addEventListener('install', (e) => {
+    self.skipWaiting();
     e.waitUntil(
         caches.open(CACHE_NAME).then((cache) => {
             return cache.addAll(ASSETS).catch(err => console.log('Ошибка кэширования:', err));
@@ -14,26 +15,31 @@ self.addEventListener('install', (e) => {
     );
 });
 
-// Активация (удаляем старый кэш)
+// Активация: удаляем старый кэш и берём контроль над открытыми вкладками
 self.addEventListener('activate', (e) => {
     e.waitUntil(
-        caches.keys().then((keys) => {
-            return Promise.all(
-                keys.map((key) => {
-                    if (key !== CACHE_NAME) {
-                        return caches.delete(key);
-                    }
-                })
-            );
-        })
+        Promise.all([
+            self.clients.claim(),
+            caches.keys().then((keys) => {
+                return Promise.all(
+                    keys.map((key) => {
+                        if (key !== CACHE_NAME) return caches.delete(key);
+                    })
+                );
+            })
+        ])
     );
 });
 
-// Перехват запросов (работаем из кэша, если нет интернета)
+// NETWORK-FIRST: всегда сначала идём в сеть, кэш — только если сети нет
 self.addEventListener('fetch', (e) => {
     e.respondWith(
-        caches.match(e.request).then((response) => {
-            return response || fetch(e.request);
-        })
+        fetch(e.request)
+            .then((response) => {
+                const clone = response.clone();
+                caches.open(CACHE_NAME).then((cache) => cache.put(e.request, clone));
+                return response;
+            })
+            .catch(() => caches.match(e.request))
     );
 });
