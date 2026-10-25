@@ -1007,6 +1007,22 @@
             <button onclick="location.reload()" style="padding: 10px 20px; margin-top: 20px; font-size: 16px; cursor:pointer;">В главное меню</button>
         </div>`;
     }
+    
+</script>
+
+<script>
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('./sw.js')
+        .then(registration => {
+          console.log('ServiceWorker зарегистрирован!');
+        })
+        .catch(err => {
+          console.log('Ошибка регистрации ServiceWorker:', err);
+        });
+    });
+  }
+  
 </script>
 </body>
 </html>
