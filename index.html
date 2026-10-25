@@ -66,7 +66,6 @@
         .tab-btn.active { opacity: 1; transform: scale(1.1); }
         #game-ui { display: none; height: 100%; flex-direction: column; }
 
-        /* Модальное окно предупреждения */
         #warn-overlay { position: fixed; top:0; left:0; right:0; bottom:0; background: rgba(0,0,0,0.6); display: none; justify-content: center; align-items: center; z-index: 9999; padding: 20px; }
         #warn-overlay.show { display: flex; }
         #warn-box { background: #fff; border-radius: 12px; padding: 20px; max-width: 400px; width: 100%; box-shadow: 0 10px 40px rgba(0,0,0,0.4); text-align: center; animation: pop 0.2s ease; }
@@ -81,6 +80,18 @@
         .warn-cancel:active { background: #d5dbdb; }
         .warn-confirm { background: #e74c3c; color: white; }
         .warn-confirm:active { background: #c0392b; }
+
+        /* Казино — рулетка */
+        .roulette-btns { display: flex; gap: 6px; margin-top: 4px; }
+        .roulette-btns button { flex: 1; padding: 10px 4px; border: none; border-radius: 8px; font-size: 13px; font-weight: bold; cursor: pointer; color: white; transition: 0.15s; }
+        .roulette-btns button:active { transform: scale(0.96); }
+        .rb-red { background: #e74c3c; }
+        .rb-black { background: #2c3e50; }
+        .rb-green { background: #27ae60; }
+
+        /* Секретная кнопка */
+        #secret-btn { background: none; border: none; font-size: 20px; cursor: pointer; opacity: 0.15; padding: 10px; display: block; margin: 4px auto 0 auto; transition: opacity 0.2s; user-select: none; }
+        #secret-btn:active { opacity: 0.4; }
     </style>
 </head>
 <body>
@@ -122,7 +133,7 @@
                     <div>🚗 Транспорт: <span id="inv-trans">Босиком</span></div>
                 </div>
                 <div class="bank-box">
-                    <div class="bank-info"><span>🏦 Ваш вклад в банке</span><span id="bank-val">0 ₽</span></div>
+                    <div class="bank-info"><span>🏦 Ваш вклад в банке (1%/день)</span><span id="bank-val">0 ₽</span></div>
                     <div style="display:flex; gap:5px;">
                         <input type="number" id="bank-input" value="100" min="1" style="flex:1; margin:0;">
                         <button class="action-btn" style="padding:4px 8px; font-size:12px;" onclick="bankDeposit()">Вложить</button>
@@ -136,10 +147,15 @@
                     <button class="action-btn" style="justify-content:center; margin-top:5px;" onclick="doExchange()">Обменять</button>
                 </div>
                 <div class="casino-block">
-                    <div style="text-align:center; margin-bottom:3px; font-size:13px;">🎰 Казино (Игра на $)</div>
+                    <div style="text-align:center; margin-bottom:3px; font-size:13px;">🎰 Рулетка (Игра на $)</div>
                     <input type="number" id="bet-amount" value="1" min="1">
-                    <button class="action-btn" style="justify-content:center; background:#e74c3c; color:white;" onclick="playCasino()">Играть на удачу (x2)</button>
+                    <div class="roulette-btns">
+                        <button class="rb-red" onclick="playCasino('red')">🔴 Красное x2</button>
+                        <button class="rb-black" onclick="playCasino('black')">⚫ Чёрное x2</button>
+                        <button class="rb-green" onclick="playCasino('green')">🟢 Зелёное x35</button>
+                    </div>
                 </div>
+                <button id="secret-btn" onclick="secretClick()">⭐</button>
                 <div class="log-box" id="main-log"><div class="log-entry sys">Добро пожаловать!</div></div>
             </div>
             <div id="tab-work" class="tab-content">
@@ -149,15 +165,15 @@
                 <button class="action-btn" onclick="actionBeg()"><span>Попрошайничать</span><span class="cost">+ 5-15 ₽</span></button>
                 <button class="action-btn" onclick="actionSellBottles()" style="background:#d1f2eb;"><span>Сдать бутылки</span><span class="cost">+ 10 ₽ / шт.</span></button>
                 <div class="section-title">Работы</div>
-                <button class="action-btn" onclick="work('loader')"><span>Грузчик<span class="req" id="req-loader"></span></span><span class="cost">+100 ₽ / -15 ❤️ / -5 😊</span></button>
-                <button class="action-btn" onclick="work('waiter')"><span>Официант<span class="req" id="req-waiter">Требуется: Школа, Ролики</span></span><span class="cost">+180 ₽ / -10 ❤️ / -10 😊</span></button>
-                <button class="action-btn" onclick="work('builder')"><span>Строитель<span class="req" id="req-builder">Требуется: Школа</span></span><span class="cost">+280 ₽ / -25 ❤️ / -5 😊</span></button>
-                <button class="action-btn" onclick="work('courier')"><span>Курьер<span class="req" id="req-courier">Требуется: Самокат, Телефон</span></span><span class="cost">+450 ₽ / -10 ❤️ / -10 😊</span></button>
-                <button class="action-btn" onclick="work('taxi')"><span>Таксист<span class="req" id="req-taxi">Требуется: Права, Машина, Телефон</span></span><span class="cost">+800 ₽ / -10 ❤️ / -15 😊</span></button>
-                <button class="action-btn" onclick="work('mchs')"><span>МЧСник<span class="req" id="req-mchs">Требуется: Военный билет, Бакалавр</span></span><span class="cost">+1000 ₽ / -20 ❤️ / -15 😊</span></button>
-                <button class="action-btn" onclick="work('programmer')"><span>Программист<span class="req" id="req-programmer">Требуется: Бакалавр, Компьютер</span></span><span class="cost">+2000 ₽ / -5 ❤️ / -20 😊</span></button>
-                <button class="action-btn" onclick="work('pilot')"><span>Пилот<span class="req" id="req-pilot">Требуется: Лётная лицензия, Самолёт</span></span><span class="cost">+5000 ₽ / -5 ❤️ / -10 😊</span></button>
-                <button class="action-btn" onclick="work('ceo')"><span>Директор IT<span class="req" id="req-ceo">Требуется: Научная степень, Офис, IT-команда</span></span><span class="cost">+15000 ₽ / -10 ❤️ / -20 😊</span></button>
+                <button class="action-btn" onclick="work('loader')"><span>Грузчик<span class="req" id="req-loader"></span></span><span class="cost">+100 ₽ / -15 ❤️ / -3 😊 / 🍕-15</span></button>
+                <button class="action-btn" onclick="work('waiter')"><span>Официант<span class="req" id="req-waiter">Требуется: Школа, Ролики</span></span><span class="cost">+180 ₽ / -10 ❤️ / -5 😊 / 🍕0</span></button>
+                <button class="action-btn" onclick="work('builder')"><span>Строитель<span class="req" id="req-builder">Требуется: Школа</span></span><span class="cost">+280 ₽ / -25 ❤️ / -3 😊 / 🍕-15</span></button>
+                <button class="action-btn" onclick="work('courier')"><span>Курьер<span class="req" id="req-courier">Требуется: Самокат, Телефон</span></span><span class="cost">+450 ₽ / -10 ❤️ / -6 😊 / 🍕-12</span></button>
+                <button class="action-btn" onclick="work('taxi')"><span>Таксист<span class="req" id="req-taxi">Требуется: Права, Машина, Телефон</span></span><span class="cost">+800 ₽ / -10 ❤️ / -10 😊 / 🍕-10</span></button>
+                <button class="action-btn" onclick="work('mchs')"><span>МЧСник<span class="req" id="req-mchs">Требуется: Военный билет, Бакалавр</span></span><span class="cost">+1000 ₽ / -20 ❤️ / -10 😊 / 🍕-14</span></button>
+                <button class="action-btn" onclick="work('programmer')"><span>Программист<span class="req" id="req-programmer">Требуется: Бакалавр, Компьютер</span></span><span class="cost">+2000 ₽ / -5 ❤️ / -12 😊 / 🍕-10</span></button>
+                <button class="action-btn" onclick="work('pilot')"><span>Пилот<span class="req" id="req-pilot">Требуется: Лётная лицензия, Самолёт</span></span><span class="cost">+5000 ₽ / -5 ❤️ / -6 😊 / 🍕-8</span></button>
+                <button class="action-btn" onclick="work('ceo')"><span>Директор IT<span class="req" id="req-ceo">Требуется: Научная степень, Офис, IT-команда</span></span><span class="cost">+15000 ₽ / -10 ❤️ / -12 😊 / 🍕-10</span></button>
                 <div class="log-box" id="work-log"></div>
             </div>
             <div id="tab-life" class="tab-content">
@@ -177,7 +193,7 @@
                 <button class="action-btn" onclick="buyItem('boat_rest')" id="btn-boat-rest"><span>🛥️ Отдых на катере</span><span class="cost">+100 😊</span></button>
                 <button class="action-btn" onclick="buySub('friend')" id="btn-sub-friend"><span class="check-mark">✅</span><span>🤝 Друг на час (подписка)</span><span class="cost">600 ₽ / день / +50 😊</span></button>
                 <div class="section-title">Здоровье</div>
-                <button class="action-btn" onclick="heal('trash_pills')"><span>💊 Таблетки с помойки</span><span class="cost">Рандом / -10 😊</span></button>
+                <button class="action-btn" onclick="heal('trash_pills')"><span>💊 Таблетки с помойки</span><span class="cost">Рандом / -5 😊</span></button>
                 <button class="action-btn" onclick="heal('grandma_pills')"><span>👵 Бабушкины лекарства</span><span class="cost">150 ₽ / +25 ❤️</span></button>
                 <button class="action-btn" onclick="heal('antibiotics')"><span>💉 Антибиотики</span><span class="cost">300 ₽ / +60 ❤️</span></button>
                 <button class="action-btn" onclick="buySub('doctor')" id="btn-sub-doctor"><span class="check-mark">✅</span><span>🏥 Платный врач (подписка)</span><span class="cost">2000 ₽ / день / +100 ❤️</span></button>
@@ -247,7 +263,6 @@
     </div>
 </div>
 
-<!-- Модальное окно предупреждения -->
 <div id="warn-overlay">
     <div id="warn-box">
         <h3>⚠️ Внимание!</h3>
@@ -264,13 +279,26 @@
     let state = {};
     const SAVE_KEY = 'bomzhara_save_final_v4';
 
-    // === СИСТЕМА ПРЕДУПРЕЖДЕНИЯ ===
-    // Порог: если после действия ресурс станет ниже этого значения — предупреждаем
     const WARN_THRESHOLD = 15;
     let warnCallback = null;
 
+    // Награды за достижения
+    const ACH_REWARDS = {
+        gruzal: 500, courier: 1000, isaac: 2000, immortal: 10000,
+        aristocrat: 5000, spender: 5000, secret_millionaire: 10000,
+        workaholic: 3000, lucky: 2000, longliver: 5000,
+        shopaholic: 5000, partier: 1000, nomad: 1000
+    };
+
+    // Голод работ (сколько остаётся от 20 ед. skipDay)
+    const JOB_FOOD = {
+        loader: 15, waiter: 0, builder: 15, courier: 12, taxi: 10,
+        mchs: 14, programmer: 10, pilot: 8, ceo: 10
+    };
+
+    let secretClicks = 0;
+
     function checkAndWarn(losses, onConfirm) {
-        // losses = { hp: 10, food: 5, happy: 20 } — сколько ресурс потеряет
         let warnings = [];
         if (losses.hp && state.hp - losses.hp < WARN_THRESHOLD) {
             warnings.push(`❤️ Здоровье: ${Math.floor(state.hp)} → ${Math.max(0, Math.floor(state.hp - losses.hp))}`);
@@ -281,12 +309,7 @@
         if (losses.happy && state.happy - losses.happy < WARN_THRESHOLD) {
             warnings.push(`😊 Счастье: ${Math.floor(state.happy)} → ${Math.max(0, Math.floor(state.happy - losses.happy))}`);
         }
-
-        if (warnings.length === 0) {
-            onConfirm();
-            return;
-        }
-
+        if (warnings.length === 0) { onConfirm(); return; }
         warnCallback = onConfirm;
         const list = document.getElementById('warn-list');
         list.innerHTML = warnings.map(w => `<div>• ${w}</div>`).join('');
@@ -303,10 +326,8 @@
         if (warnCallback) { const cb = warnCallback; warnCallback = null; cb(); }
     }
 
-    // === РАСЧЁТ СНИЖЕНИЯ ГОЛОДА ОТ ТРАНСПОРТА ===
-    // Чем лучше транспорт — тем меньше расход еды на работе
     function getFoodReduction() {
-        let reduction = 0; // в процентах
+        let reduction = 0;
         if (state.trans.plane) reduction = 60;
         else if (state.trans.helicopter) reduction = 50;
         else if (state.trans.boat) reduction = 45;
@@ -316,12 +337,6 @@
         else if (state.trans.rollers) reduction = 15;
         else if (state.trans.sneakers) reduction = 10;
         return reduction;
-    }
-
-    function getFoodReductionLabel() {
-        let r = getFoodReduction();
-        if (r === 0) return '';
-        return ` (🍕 -${r}% от транспорта)`;
     }
 
     window.onload = function() { checkSave(); };
@@ -354,13 +369,14 @@
         let counters = { loader_count: 0, courier_count: 0, total_spent: 0, total_earned_work: 0, total_work_shifts: 0, home_changes: 0, casino_wins: 0, attractions_count: 0 };
 
         if (diff === 'easy') {
-            state = { hp: 100, food: 100, happy: 100, rub: 2000, usd: 0, bank: 0, bottles: 0, age: 18, days: 0, isDead: false, immortal: false, hasTeam: false, edu: { ...baseEdu, school: true }, trans: baseTrans, tech: baseTech, home: baseHome, subs: baseSubs, ach: baseAch, counters: counters };
+            state = { hp: 100, food: 100, happy: 100, rub: 2000, usd: 0, bank: 0, bottles: 0, age: 18, days: 0, isDead: false, immortal: false, hasTeam: false, secretUsed: false, edu: { ...baseEdu, school: true }, trans: baseTrans, tech: baseTech, home: baseHome, subs: baseSubs, ach: baseAch, counters: counters };
         } else if (diff === 'normal') {
-            state = { hp: 100, food: 100, happy: 100, rub: 200, usd: 0, bank: 0, bottles: 0, age: 25, days: 0, isDead: false, immortal: false, hasTeam: false, edu: baseEdu, trans: baseTrans, tech: baseTech, home: baseHome, subs: baseSubs, ach: baseAch, counters: counters };
+            state = { hp: 100, food: 100, happy: 100, rub: 200, usd: 0, bank: 0, bottles: 0, age: 25, days: 0, isDead: false, immortal: false, hasTeam: false, secretUsed: false, edu: baseEdu, trans: baseTrans, tech: baseTech, home: baseHome, subs: baseSubs, ach: baseAch, counters: counters };
         } else if (diff === 'hard') {
-            state = { hp: 50, food: 50, happy: 50, rub: 50, usd: 0, bank: 0, bottles: 0, age: 45, days: 0, isDead: false, immortal: false, hasTeam: false, edu: baseEdu, trans: baseTrans, tech: baseTech, home: baseHome, subs: baseSubs, ach: baseAch, counters: counters };
+            state = { hp: 50, food: 50, happy: 50, rub: 50, usd: 0, bank: 0, bottles: 0, age: 45, days: 0, isDead: false, immortal: false, hasTeam: false, secretUsed: false, edu: baseEdu, trans: baseTrans, tech: baseTech, home: baseHome, subs: baseSubs, ach: baseAch, counters: counters };
         }
         
+        secretClicks = 0;
         document.getElementById('difficulty-menu').style.display = 'none';
         document.getElementById('game-ui').style.display = 'flex';
         document.getElementById('main-log').innerHTML = ''; 
@@ -373,15 +389,15 @@
         const saved = localStorage.getItem(SAVE_KEY);
         if (saved) {
             state = JSON.parse(saved);
+            if (state.secretUsed === undefined) state.secretUsed = false;
+            secretClicks = 0;
             document.getElementById('start-menu').style.display = 'none';
             document.getElementById('game-ui').style.display = 'flex';
             
-            document.getElementById('main-log').innerHTML = '';
-            document.getElementById('work-log').innerHTML = '';
-            document.getElementById('life-log').innerHTML = '';
-            document.getElementById('home-log').innerHTML = '';
-            document.getElementById('trans-log').innerHTML = '';
-            document.getElementById('ach-log').innerHTML = '';
+            ['main-log','work-log','life-log','home-log','trans-log','ach-log'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.innerHTML = '';
+            });
             
             updateUI();
             addLog("Игра загружена.", 'main');
@@ -390,13 +406,10 @@
 
     function exitToMenu() {
         saveGame();
-        document.getElementById('main-log').innerHTML = '';
-        document.getElementById('work-log').innerHTML = '';
-        document.getElementById('life-log').innerHTML = '';
-        document.getElementById('home-log').innerHTML = '';
-        document.getElementById('trans-log').innerHTML = '';
-        document.getElementById('ach-log').innerHTML = '';
-
+        ['main-log','work-log','life-log','home-log','trans-log','ach-log'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.innerHTML = '';
+        });
         document.getElementById('game-ui').style.display = 'none';
         document.getElementById('start-menu').style.display = 'flex';
         checkSave();
@@ -435,6 +448,7 @@
         document.getElementById('work-bottles').innerText = state.bottles;
         document.getElementById('age').innerText = state.age;
         document.getElementById('days').innerText = state.days;
+        document.getElementById('bank-val').innerText = Math.floor(state.bank) + " ₽";
 
         let eduArr = [];
         if (state.edu.school) eduArr.push("Школа");
@@ -459,7 +473,6 @@
         if (state.trans.plane) transArr.push("Самолёт");
         document.getElementById('inv-trans').innerText = transArr.length ? transArr.join(', ') : 'Босиком';
 
-        // Проверки для работ
         let reqLoader = [];
         if (!state.trans.sneakers) reqLoader.push("Кроссовки (урон x2)");
         document.getElementById('req-loader').innerText = reqLoader.length ? "Требуется: " + reqLoader.join(', ') : '';
@@ -513,7 +526,6 @@
         document.getElementById('req-ceo').innerText = reqCeo.length ? "Требуется: " + reqCeo.join(', ') : '';
         document.getElementById('req-ceo').classList.toggle('req-hidden', reqCeo.length === 0);
 
-        // Проверки образования
         let reqBach = [];
         if (!state.edu.school) reqBach.push("Школа");
         document.getElementById('req-bachelor').innerText = reqBach.length ? "Нужна: " + reqBach.join(', ') : '';
@@ -529,7 +541,6 @@
         document.getElementById('req-science').innerText = reqScience.length ? "Нужна: " + reqScience.join(', ') : '';
         document.getElementById('req-science').classList.toggle('req-hidden', reqScience.length === 0);
 
-        // Галочки
         toggleOwned('btn-edu-school', state.edu.school);
         toggleOwned('btn-edu-bachelor', state.edu.bachelor);
         toggleOwned('btn-edu-master', state.edu.master);
@@ -558,6 +569,10 @@
         toggleOwned('btn-home-box', state.home.type === 'box');
 
         document.getElementById('btn-boat-rest').style.display = state.trans.boat ? 'flex' : 'none';
+
+        const secretBtn = document.getElementById('secret-btn');
+        if (state.secretUsed) secretBtn.style.display = 'none';
+        else secretBtn.style.display = 'block';
 
         const slider = document.getElementById('currency-slider');
         slider.max = Math.floor(state.rub / 60);
@@ -615,7 +630,6 @@
             entry.innerHTML = text;
             mainLog.prepend(entry);
         }
-        
         if (tabId && tabId !== 'main') {
             const localLog = document.getElementById(tabId + '-log');
             if (localLog) {
@@ -724,8 +738,7 @@
         if (state.edu.science && state.home.type === 'office') {
             state.hasTeam = true;
             addLog("👥 IT-команда нанята! Теперь доступна работа Директором.", 'main');
-            state.ach.isaac = true;
-            addLog("🏆 Достижение: Разработчик Айзека", 'main');
+            grantAchievement('isaac');
             updateUI(); saveGame();
         } else {
             addLog("❌ Требуется научная степень и Офис!", 'main');
@@ -739,49 +752,50 @@
         let hpLoss = 0, happyLoss = 0, pay = 0;
 
         if (job === 'loader') { 
-            if (!state.trans.sneakers) { hpLoss += 15; }
-            pay = 100; hpLoss += 15; happyLoss = 5;
+            if (!state.trans.sneakers) hpLoss += 15;
+            pay = 100; hpLoss += 15; happyLoss = 3;
         }
         if (job === 'waiter') {
             if(!state.edu.school || !state.trans.rollers) { addLog("❌ Нужна школа и ролики!", 'work'); return; }
-            pay = 180; hpLoss = 10; happyLoss = 10;
+            pay = 180; hpLoss = 10; happyLoss = 5;
         }
         if (job === 'builder') {
             if(!state.edu.school) { addLog("❌ Требуется школа!", 'work'); return; }
-            pay = 280; hpLoss = 25; happyLoss = 5;
+            pay = 280; hpLoss = 25; happyLoss = 3;
         }
         if (job === 'courier') {
             if(!state.trans.scooter || !state.tech.phone) { addLog("❌ Нужен самокат и телефон!", 'work'); return; }
-            pay = 450; hpLoss = 10; happyLoss = 10;
+            pay = 450; hpLoss = 10; happyLoss = 6;
         }
         if (job === 'taxi') {
             if(!state.edu.license || !state.trans.car || !state.tech.phone) { addLog("❌ Нужны права, машина и телефон!", 'work'); return; }
-            pay = 800; hpLoss = 10; happyLoss = 15;
+            pay = 800; hpLoss = 10; happyLoss = 10;
         }
         if (job === 'mchs') {
             if(!state.edu.military || !state.edu.bachelor) { addLog("❌ Нужен военный билет и бакалавр!", 'work'); return; }
-            pay = 1000; hpLoss = 20; happyLoss = 15;
+            pay = 1000; hpLoss = 20; happyLoss = 10;
         }
         if (job === 'programmer') {
             if(!state.edu.bachelor || !state.tech.computer) { addLog("❌ Нужен бакалавр и компьютер!", 'work'); return; }
-            pay = 2000; hpLoss = 5; happyLoss = 20;
+            pay = 2000; hpLoss = 5; happyLoss = 12;
         }
         if (job === 'pilot') {
             if(!state.edu.pilot_license || !state.trans.plane) { addLog("❌ Нужна лётная лицензия и самолёт!", 'work'); return; }
-            pay = 5000; hpLoss = 5; happyLoss = 10;
+            pay = 5000; hpLoss = 5; happyLoss = 6;
         }
         if (job === 'ceo') {
             if(!state.edu.science || !state.hasTeam || state.home.type !== 'office') { addLog("❌ Нужна степень, команда и офис!", 'work'); return; }
-            pay = 15000; hpLoss = 10; happyLoss = 20;
+            pay = 15000; hpLoss = 10; happyLoss = 12;
         }
 
-        // Предупреждение перед работой
-        let foodLoss = Math.round(20 * (1 - getFoodReduction() / 100));
+        // Голод работы с учётом транспорта
+        let baseFood = JOB_FOOD[job] !== undefined ? JOB_FOOD[job] : 20;
+        let foodLoss = Math.round(baseFood * (1 - getFoodReduction() / 100));
+
         checkAndWarn({ hp: hpLoss * penalty, happy: happyLoss * penalty, food: foodLoss }, () => {
             if (penalty > 1) addLog(`⚠️ Работа на износ! Урон x2.`, 'work');
             if (!state.trans.sneakers && job === 'loader') addLog("⚠️ Без кроссовок урон x2!", 'work');
             
-            // Случайные события
             if (job === 'waiter' && Math.random() < 0.05) { addLog("🤕 Вы упали с роликов! -20 ❤️", 'work'); hpLoss += 20; }
             if (job === 'builder' && Math.random() < 0.05) { addLog("🧱 На вас упал кирпич! -30 ❤️", 'work'); hpLoss += 30; }
             if (job === 'taxi' && Math.random() < 0.05) { addLog("🚓 Вас оштрафовали! -200 ₽", 'work'); state.rub -= 200; }
@@ -803,7 +817,23 @@
             addLog(`💼 Отработано: +${pay} ₽, -${hpLoss * penalty} ❤️, -${happyLoss * penalty} 😊${foodLabel}`, 'work');
             
             if (state.hp <= 0) { gameOver("Вы умерли на работе."); return; }
+
+            // skipDay списывает 20 еды. Компенсируем разницу до нужного значения работы.
+            let foodBefore = state.food;
             skipDay();
+            if (!state.isDead) {
+                let targetLoss = foodLoss;
+                let actualLoss = foodBefore - state.food;
+                let correction = actualLoss - targetLoss;
+                if (correction > 0) {
+                    state.food += correction;
+                    if (state.food > 100) state.food = 100;
+                } else if (correction < 0) {
+                    state.food += correction;
+                    if (state.food < 0) state.food = 0;
+                }
+                updateUI(); saveGame();
+            }
         });
     }
 
@@ -874,15 +904,15 @@
 
     function heal(item) {
         if (item === 'trash_pills') {
-            checkAndWarn({ happy: 10 }, () => {
+            checkAndWarn({ happy: 5 }, () => {
                 let bottlesFound = 0;
                 if (Math.random() < 0.5) {
                     bottlesFound = Math.floor(Math.random()*2)+1;
                     state.bottles += bottlesFound;
                 }
                 if (Math.random() > 0.3) { 
-                    state.hp += 15; state.happy -= 10; 
-                    addLog(`💊 Таблетки помогли (+15 ❤️, -10 😊). ${bottlesFound > 0 ? `Бонус: найдено ${bottlesFound} бутылок!` : ''}`, 'life'); 
+                    state.hp += 15; state.happy -= 5; 
+                    addLog(`💊 Таблетки помогли (+15 ❤️, -5 😊). ${bottlesFound > 0 ? `Бонус: найдено ${bottlesFound} бутылок!` : ''}`, 'life'); 
                 }
                 else { 
                     state.hp -= 10; 
@@ -934,7 +964,7 @@
 
     function buyImmortality() {
         if (state.immortal) { addLog("Вы уже бессмертны!", 'main'); return; }
-        if (state.usd >= 8000) { state.usd -= 8000; state.immortal = true; state.ach.immortal = true; addLog("💊 Вы купили Таблетку Бессмертия! Смерть от старости отключена.", 'main'); }
+        if (state.usd >= 8000) { state.usd -= 8000; state.immortal = true; grantAchievement('immortal'); addLog("💊 Вы купили Таблетку Бессмертия! Смерть от старости отключена.", 'main'); }
         else { addLog("❌ Нужно 8 000 $!", 'main'); }
         updateUI(); saveGame();
     }
@@ -984,52 +1014,99 @@
         }
     }
 
-    function playCasino() {
+    // === КАЗИНО-РУЛЕТКА ===
+    function playCasino(color) {
         let bet = parseInt(document.getElementById('bet-amount').value);
         if (isNaN(bet) || bet <= 0) { addLog("Введите ставку.", 'main'); return; }
         if (state.usd < bet) { addLog("❌ Недостаточно долларов.", 'main'); return; }
         
         state.usd -= bet;
-        if (Math.random() > 0.5) { 
-            state.usd += bet * 2; 
-            addLog(`🎰 Выигрыш $${bet * 2}!`, 'main'); 
+        let num = Math.floor(Math.random() * 37); // 0..36
+        let resultColor = (num === 0) ? 'green' : (num <= 18 ? 'red' : 'black');
+        let colorEmoji = { red: '🔴', black: '⚫', green: '🟢' }[resultColor];
+        
+        if (resultColor === color) {
+            let multiplier = (color === 'green') ? 35 : 2;
+            let win = bet * multiplier;
+            state.usd += win;
+            addLog(`🎰 Выпало ${colorEmoji} ${num}. Выигрыш $${win}!`, 'main');
             state.counters.casino_wins++;
-            if (bet >= 1000) { state.ach.lucky = true; addLog("🏆 Достижение: Счастливчик", 'main'); }
+            if (win >= 1000) grantAchievement('lucky');
+        } else {
+            addLog(`🎰 Выпало ${colorEmoji} ${num}. Проигрыш $${bet}.`, 'main');
         }
-        else { addLog(`🎰 Проигрыш $${bet}.`, 'main'); }
         updateUI(); saveGame();
     }
 
+    // === СЕКРЕТНАЯ КНОПКА ===
+    function secretClick() {
+        if (state.secretUsed) return;
+        secretClicks++;
+        if (secretClicks >= 10) {
+            state.secretUsed = true;
+            state.rub += 1000;
+            state.hp = Math.min(100, state.hp + 50);
+            state.food = Math.min(100, state.food + 50);
+            state.happy = Math.min(100, state.happy + 50);
+            addLog("🎁 Секретный бонус активирован! +1000 ₽, +50 ❤️/🍕/😊", 'main');
+            document.getElementById('secret-btn').style.display = 'none';
+            updateUI(); saveGame();
+        }
+    }
+
+    // === НАГРАДЫ ЗА ДОСТИЖЕНИЯ ===
+    function grantAchievement(id) {
+        if (state.ach[id]) return;
+        state.ach[id] = true;
+        let reward = ACH_REWARDS[id] || 0;
+        if (reward > 0) {
+            state.rub += reward;
+            addLog(`🏆 Достижение: ${getAchName(id)} (+${reward} ₽)`, 'main');
+        } else {
+            addLog(`🏆 Достижение: ${getAchName(id)}`, 'main');
+        }
+    }
+
+    function getAchName(id) {
+        const names = {
+            gruzal: 'Грузаль Никитос', courier: 'Курьер Владос', isaac: 'Разработчик Айзека',
+            immortal: 'Бессмертный', aristocrat: 'Бомж-аристократ', spender: 'Транжира',
+            secret_millionaire: 'Тайный миллионер', workaholic: 'Трудоголик', lucky: 'Счастливчик',
+            longliver: 'Долгожитель', shopaholic: 'Шопоголик', partier: 'Тусовщик', nomad: 'Кочевник'
+        };
+        return names[id] || id;
+    }
+
     function checkAchievements() {
-        if (state.counters.loader_count >= 10 && !state.ach.gruzal) { state.ach.gruzal = true; addLog("🏆 Достижение: Грузаль Никитос", 'main'); }
-        if (state.counters.courier_count >= 10 && !state.ach.courier) { state.ach.courier = true; addLog("🏆 Достижение: Курьер Владос", 'main'); }
-        if ((state.trans.boat || state.trans.helicopter) && !state.ach.aristocrat) { state.ach.aristocrat = true; addLog("🏆 Достижение: Бомж-аристократ", 'main'); }
-        if (state.counters.total_spent >= 500000 && !state.ach.spender) { state.ach.spender = true; addLog("🏆 Достижение: Транжира", 'main'); }
-        if (state.rub >= 100000 && ['street', 'box', 'shed'].includes(state.home.type) && !state.ach.secret_millionaire) { state.ach.secret_millionaire = true; addLog("🏆 Достижение: Тайный миллионер", 'main'); }
-        if (state.counters.total_work_shifts >= 100 && !state.ach.workaholic) { state.ach.workaholic = true; addLog("🏆 Достижение: Трудоголик", 'main'); }
-        if (state.age >= 80 && !state.ach.longliver) { state.ach.longliver = true; addLog("🏆 Достижение: Долгожитель", 'main'); }
-        if (state.trans.sneakers && state.trans.rollers && state.trans.scooter && state.trans.car && state.trans.boat && state.trans.helicopter && state.trans.plane && state.tech.phone && state.tech.computer && !state.ach.shopaholic) { state.ach.shopaholic = true; addLog("🏆 Достижение: Шопоголик", 'main'); }
-        if (state.counters.attractions_count >= 10 && !state.ach.partier) { state.ach.partier = true; addLog("🏆 Достижение: Тусовщик", 'main'); }
-        if (state.counters.home_changes >= 5 && !state.ach.nomad) { state.ach.nomad = true; addLog("🏆 Достижение: Кочевник", 'main'); }
+        if (state.counters.loader_count >= 10 && !state.ach.gruzal) grantAchievement('gruzal');
+        if (state.counters.courier_count >= 10 && !state.ach.courier) grantAchievement('courier');
+        if ((state.trans.boat || state.trans.helicopter) && !state.ach.aristocrat) grantAchievement('aristocrat');
+        if (state.counters.total_spent >= 500000 && !state.ach.spender) grantAchievement('spender');
+        if (state.rub >= 100000 && ['street', 'box', 'shed'].includes(state.home.type) && !state.ach.secret_millionaire) grantAchievement('secret_millionaire');
+        if (state.counters.total_work_shifts >= 100 && !state.ach.workaholic) grantAchievement('workaholic');
+        if (state.age >= 80 && !state.ach.longliver) grantAchievement('longliver');
+        if (state.trans.sneakers && state.trans.rollers && state.trans.scooter && state.trans.car && state.trans.boat && state.trans.helicopter && state.trans.plane && state.tech.phone && state.tech.computer && !state.ach.shopaholic) grantAchievement('shopaholic');
+        if (state.counters.attractions_count >= 10 && !state.ach.partier) grantAchievement('partier');
+        if (state.counters.home_changes >= 5 && !state.ach.nomad) grantAchievement('nomad');
     }
 
     function updateAchievementsList() {
         const list = document.getElementById('achievements-list');
         list.innerHTML = '';
         let achievements = [
-            { id: 'gruzal', name: 'Грузаль Никитос', desc: '10 смен грузчиком' },
-            { id: 'courier', name: 'Курьер Владос', desc: '10 смен курьером' },
-            { id: 'isaac', name: 'Разработчик Айзека', desc: 'Нанять IT-команду' },
-            { id: 'immortal', name: 'Бессмертный', desc: 'Купить Таблетку Бессмертия' },
-            { id: 'aristocrat', name: 'Бомж-аристократ', desc: 'Купить катер или вертолёт' },
-            { id: 'spender', name: 'Транжира', desc: 'Потратить 500 000 ₽ за игру' },
-            { id: 'secret_millionaire', name: 'Тайный миллионер', desc: 'Накопить 100 000 ₽, живя в коробке' },
-            { id: 'workaholic', name: 'Трудоголик', desc: 'Отработать 100 смен' },
-            { id: 'lucky', name: 'Счастливчик', desc: 'Выиграть в казино $1000+ за раз' },
-            { id: 'longliver', name: 'Долгожитель', desc: 'Дожить до 80 лет' },
-            { id: 'shopaholic', name: 'Шопоголик', desc: 'Купить весь транспорт и технику' },
-            { id: 'partier', name: 'Тусовщик', desc: 'Сходить на аттракционы 10 раз' },
-            { id: 'nomad', name: 'Кочевник', desc: 'Сменить жильё 5 раз' }
+            { id: 'gruzal', name: 'Грузаль Никитос', desc: '10 смен грузчиком (+500 ₽)' },
+            { id: 'courier', name: 'Курьер Владос', desc: '10 смен курьером (+1000 ₽)' },
+            { id: 'isaac', name: 'Разработчик Айзека', desc: 'Нанять IT-команду (+2000 ₽)' },
+            { id: 'immortal', name: 'Бессмертный', desc: 'Купить Таблетку Бессмертия (+10000 ₽)' },
+            { id: 'aristocrat', name: 'Бомж-аристократ', desc: 'Купить катер или вертолёт (+5000 ₽)' },
+            { id: 'spender', name: 'Транжира', desc: 'Потратить 500 000 ₽ (+5000 ₽)' },
+            { id: 'secret_millionaire', name: 'Тайный миллионер', desc: 'Накопить 100 000 ₽ в коробке (+10000 ₽)' },
+            { id: 'workaholic', name: 'Трудоголик', desc: 'Отработать 100 смен (+3000 ₽)' },
+            { id: 'lucky', name: 'Счастливчик', desc: 'Выиграть в казино $1000+ (+2000 ₽)' },
+            { id: 'longliver', name: 'Долгожитель', desc: 'Дожить до 80 лет (+5000 ₽)' },
+            { id: 'shopaholic', name: 'Шопоголик', desc: 'Купить весь транспорт и технику (+5000 ₽)' },
+            { id: 'partier', name: 'Тусовщик', desc: 'Аттракционы 10 раз (+1000 ₽)' },
+            { id: 'nomad', name: 'Кочевник', desc: 'Сменить жильё 5 раз (+1000 ₽)' }
         ];
 
         achievements.forEach(a => {
@@ -1053,7 +1130,6 @@
     }
 </script>
 
-<!-- АВТО-ОБНОВЛЕНИЕ -->
 <script>
 if ('serviceWorker' in navigator) {
     let refreshing = false;
